@@ -842,6 +842,65 @@ definitions:
       symbol:
         type: string
     type: object
+  tasks.CreateTaskRequest:
+    properties:
+      due_date:
+        example: "2026-11-05"
+        type: string
+      text:
+        example: Call the dentist
+        type: string
+    type: object
+  tasks.MessageResponse:
+    properties:
+      message:
+        example: Task deleted successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+  tasks.Task:
+    properties:
+      created_at:
+        type: string
+      due_date:
+        description: YYYY-MM-DD
+        type: string
+      id:
+        type: string
+      text:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  tasks.TaskResponse:
+    properties:
+      success:
+        example: true
+        type: boolean
+      task:
+        $ref: '#/definitions/tasks.Task'
+    type: object
+  tasks.TasksListResponse:
+    properties:
+      success:
+        example: true
+        type: boolean
+      tasks:
+        items:
+          $ref: '#/definitions/tasks.Task'
+        type: array
+    type: object
+  tasks.UpdateTaskRequest:
+    properties:
+      due_date:
+        example: "2026-11-12"
+        type: string
+      text:
+        example: Call the dentist (rescheduled)
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -1633,6 +1692,10 @@ paths:
           description: Method Not Allowed
           schema:
             type: string
+        "504":
+          description: Gateway Timeout — conversion exceeded its time budget
+          schema:
+            type: string
       summary: Universal File Converter
   /convert-measurement:
     post:
@@ -1917,6 +1980,166 @@ paths:
       summary: Get NIFTY 50 Constituent Companies
       tags:
       - markets
+  /tasks:
+    get:
+      description: Returns every saved task, newest first. Requires Bearer JWT.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of tasks
+          schema:
+            $ref: '#/definitions/tasks.TasksListResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all tasks
+      tags:
+      - Tasks
+    post:
+      consumes:
+      - application/json
+      description: Creates a new task with text and a due date (YYYY-MM-DD). Requires
+        Bearer JWT.
+      parameters:
+      - description: Create Task Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/tasks.CreateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Task created
+          schema:
+            $ref: '#/definitions/tasks.TaskResponse'
+        "400":
+          description: Validation error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a task
+      tags:
+      - Tasks
+  /tasks/{id}:
+    delete:
+      description: Deletes the task identified by ID. Requires Bearer JWT.
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task deleted
+          schema:
+            $ref: '#/definitions/tasks.MessageResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a task
+      tags:
+      - Tasks
+    put:
+      consumes:
+      - application/json
+      description: Updates the text and due date of a task. Requires Bearer JWT.
+      parameters:
+      - description: Task ID (e.g. tsk_ab12cd34)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Task Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/tasks.UpdateTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task updated
+          schema:
+            $ref: '#/definitions/tasks.TaskResponse'
+        "400":
+          description: Validation error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a task
+      tags:
+      - Tasks
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.

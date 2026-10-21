@@ -1,6 +1,7 @@
 import './style.css'
 import { initAuth, openModal } from './auth-ui'
 import { initFormatters, renderFormattersCategory } from './formatters'
+import { initTasks, renderTasksCategory } from './tasks-ui'
 import { getAuthState, isLoggedIn, clearAuth, apiGetNiftyCompanies, NiftyCompany } from './auth'
 import { chartController } from './chart-ui'
 import { initGPA } from './gpa-ui'
@@ -60,10 +61,11 @@ type ToolId =
   | 'file' | 'pdf' | 'image'  | 'measure' | 'time' | 'railway'
   | 'bmi' | 'age' | 'percentage' | 'emi' | 'tax' | 'interest' | 'scientific' | 'gpa'
   | 'formatters'
+  | 'tasks'
   | 'nifty50'
   | 'charts';
 
-type CategoryId = 'conversion' | 'calculations' | 'formatters' | 'markets';
+type CategoryId = 'conversion' | 'calculations' | 'formatters' | 'tasks' | 'markets';
 
 interface ToolDef {
   id: ToolId;
@@ -93,6 +95,9 @@ const TOOLS: Record<CategoryId, ToolDef[]> = {
   formatters: [
     { id: 'formatters', label: 'Formatter', viewId: 'formatters-view' },
   ],
+    tasks: [
+    { id: 'tasks', label: 'Tasks', viewId: 'tasks-view' },
+  ],
   markets: [
     { id: 'nifty50', label: 'NIFTY 50', viewId: 'nifty50-view' },
     { id: 'charts', label: 'Technical Charts', viewId: 'technical-chart-view' },
@@ -103,6 +108,7 @@ const CATEGORY_LABELS: Record<CategoryId, string> = {
   conversion: 'Conversion',
   calculations: 'Calculations',
   formatters: 'Formatter',
+  tasks: 'Tasks',
   markets: 'Markets',
 };
 
@@ -117,6 +123,7 @@ const mobileOverlay = document.getElementById('mobile-overlay') as HTMLDivElemen
 const btnCategoryConversion = document.getElementById('btn-category-conversion') as HTMLButtonElement;
 const btnCategoryCalculations = document.getElementById('btn-category-calculations') as HTMLButtonElement;
 const btnCategoryFormatters = document.getElementById('btn-category-formatters') as HTMLButtonElement;
+const btnCategoryTasks = document.getElementById('btn-category-tasks') as HTMLButtonElement;
 const btnCategoryMarkets = document.getElementById('btn-category-markets') as HTMLButtonElement;
 const categoryTitle = document.getElementById('category-title') as HTMLHeadingElement;
 const breadcrumbTool = document.getElementById('breadcrumb-tool') as HTMLSpanElement;
@@ -207,6 +214,7 @@ function highlightCategoryButtons() {
     [btnCategoryConversion, 'conversion'],
     [btnCategoryCalculations, 'calculations'],
     [btnCategoryFormatters, 'formatters'],
+    [btnCategoryTasks, 'tasks'],
     [btnCategoryMarkets, 'markets'],
   ];
 
@@ -258,6 +266,11 @@ function setTool(toolId: ToolId) {
     renderFormattersCategory();
   }
 
+  if (toolDef.viewId === 'tasks-view') {
+    initTasks();
+    renderTasksCategory();
+  }
+
   const activeTab = tabStrip.querySelector<HTMLButtonElement>(
     `button[data-tool="${currentTool}"]`
   );
@@ -295,6 +308,7 @@ function setCategory(category: CategoryId, preserveTool = true) {
 btnCategoryConversion.addEventListener('click', () => setCategory('conversion'));
 btnCategoryCalculations.addEventListener('click', () => setCategory('calculations'));
 btnCategoryFormatters.addEventListener('click', () => setCategory('formatters'));
+btnCategoryTasks.addEventListener('click', () => setCategory('tasks'));
 btnCategoryMarkets.addEventListener('click', () => setCategory('markets'));
 
 document.querySelector('#breadcrumb > span:first-child')?.addEventListener('click', () => {
@@ -305,9 +319,9 @@ document.querySelector('#breadcrumb > span:first-child')?.addEventListener('clic
 // INITIAL RENDER & ROUTE HANDLING
 // ============================================================
 initFormatters();
+initTasks();
 initAuth();
 initGPA();
-
 const path = window.location.pathname.toLowerCase();
 const hash = window.location.hash.toLowerCase();
 

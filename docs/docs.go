@@ -921,6 +921,12 @@ const docTemplate = `{
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    "504": {
+                        "description": "Gateway Timeout — conversion exceeded its time budget",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
             }
@@ -1304,6 +1310,254 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns every saved task, newest first. Requires Bearer JWT.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "List all tasks",
+                "responses": {
+                    "200": {
+                        "description": "List of tasks",
+                        "schema": {
+                            "$ref": "#/definitions/tasks.TasksListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new task with text and a due date (YYYY-MM-DD). Requires Bearer JWT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Create a task",
+                "parameters": [
+                    {
+                        "description": "Create Task Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/tasks.CreateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Task created",
+                        "schema": {
+                            "$ref": "#/definitions/tasks.TaskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates the text and due date of a task. Requires Bearer JWT.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Update a task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID (e.g. tsk_ab12cd34)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Task Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/tasks.UpdateTaskRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Task updated",
+                        "schema": {
+                            "$ref": "#/definitions/tasks.TaskResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Task not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes the task identified by ID. Requires Bearer JWT.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Tasks"
+                ],
+                "summary": "Delete a task",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Task ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Task deleted",
+                        "schema": {
+                            "$ref": "#/definitions/tasks.MessageResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Task not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -2558,6 +2812,93 @@ const docTemplate = `{
                 },
                 "symbol": {
                     "type": "string"
+                }
+            }
+        },
+        "tasks.CreateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "due_date": {
+                    "type": "string",
+                    "example": "2026-11-05"
+                },
+                "text": {
+                    "type": "string",
+                    "example": "Call the dentist"
+                }
+            }
+        },
+        "tasks.MessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Task deleted successfully"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "tasks.Task": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "due_date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "tasks.TaskResponse": {
+            "type": "object",
+            "properties": {
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "task": {
+                    "$ref": "#/definitions/tasks.Task"
+                }
+            }
+        },
+        "tasks.TasksListResponse": {
+            "type": "object",
+            "properties": {
+                "success": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/tasks.Task"
+                    }
+                }
+            }
+        },
+        "tasks.UpdateTaskRequest": {
+            "type": "object",
+            "properties": {
+                "due_date": {
+                    "type": "string",
+                    "example": "2026-11-12"
+                },
+                "text": {
+                    "type": "string",
+                    "example": "Call the dentist (rescheduled)"
                 }
             }
         }

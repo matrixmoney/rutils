@@ -13,7 +13,7 @@ import (
 	"file-converter/internal/converter" // NEW: for CheckExtractDependencies()
 	_ "file-converter/internal/formatters"
 	"file-converter/internal/nifty"
-
+    "file-converter/internal/tasks"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -134,6 +134,39 @@ func main() {
 
 	apiMux.HandleFunc("/nifty50/companies", api.RequireAuth(cfg, niftyHandler.GetCompanies))
 
+	// ⬅️ NEW: Tasks (phone-notes style) Service & Endpoints (Authenticated)
+	tasksStore, err := tasks.NewStore(cfg.GetDataDir() + "/tasks.json")
+	if err != nil {
+		log.Fatalf("Failed to initialize tasks store: %v", err)
+	}
+	tasksService := tasks.NewService(tasksStore)
+	tasksHandler := api.NewTasksHandler(tasksService)
+
+	apiMux.HandleFunc("/tasks", api.RequireAuth(cfg, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			tasksHandler.List(w, r)
+		case http.MethodPost:
+			tasksHandler.Create(w, r)
+		default:
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			_, _ = w.Write([]byte(`{"error":"Method not allowed"}`))
+		}
+	}))
+
+	apiMux.HandleFunc("/tasks/", api.RequireAuth(cfg, func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			tasksHandler.Update(w, r)
+		case http.MethodDelete:
+			tasksHandler.Delete(w, r)
+		default:
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			_, _ = w.Write([]byte(`{"error":"Method not allowed"}`))
+		}
+	}))
 	// ⬅️ NEW: Technical Chart Service & Endpoints (Authenticated)
 	chartService := chart.NewService("data/nse/data", niftyStorage)
 	chartHandler := api.NewChartHandler(chartService)
@@ -196,6 +229,11 @@ func main() {
 	fmt.Println(" -> POST http://localhost:8080/auth/reset-password   (Forced Password Reset)")
 	fmt.Println(" -> POST http://localhost:8080/auth/change-password  (Change Password)")
 	fmt.Println(" -> GET  http://localhost:8080/auth/me               (Current User Profile)")
+		fmt.Println("Tasks (Authenticated):")
+	fmt.Println(" -> GET    http://localhost:8080/tasks                   (List Tasks)")
+	fmt.Println(" -> POST   http://localhost:8080/tasks                   (Create Task)")
+	fmt.Println(" -> PUT    http://localhost:8080/tasks/{id}              (Update Task)")
+	fmt.Println(" -> DELETE http://localhost:8080/tasks/{id}              (Delete Task)")
 	fmt.Println("Markets (Authenticated):")
 	fmt.Println(" -> GET  http://localhost:8080/nifty50/companies      (NIFTY 50 Constituents)")
 	fmt.Println(" -> GET  http://localhost:8080/market/chart/companies (Technical Chart Companies)")
