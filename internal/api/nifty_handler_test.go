@@ -43,7 +43,8 @@ func setupTestServer(t *testing.T, dataFile string) (http.Handler, *auth.Config,
 	mux.HandleFunc("/nifty50/companies", RequireAuth(cfg, handler.GetCompanies))
 
 	// Generate a valid token
-	token, err := auth.GenerateToken(cfg, "user-123", "test@example.com", false)
+		// ⬅️ CHANGED: GenerateToken now takes a `name` argument (5 args total).
+	token, err := auth.GenerateToken(cfg, "user-123", "test@example.com", "Test User", false)
 	if err != nil {
 		t.Fatalf("failed to generate test JWT: %v", err)
 	}

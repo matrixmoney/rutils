@@ -196,7 +196,8 @@ async function handleCreate(): Promise<void> {
 
   try {
     const { token } = getAuthState();
-    await createTask(text, date, token || undefined);
+    // ⬅️ CHANGED: capture the response so we can read `email_sent`.
+    const res = await createTask(text, date, token || undefined);
 
     // Reset the draft.
     draftText = '';
@@ -204,7 +205,15 @@ async function handleCreate(): Promise<void> {
     textarea.value = '';
     dateInput.value = draftDate;
 
-    toast('Task saved ✅');
+    // ⬅️ NEW: choose the toast wording based on whether the confirmation
+    // email actually went out. The task is always saved either way; only
+    // the email is best-effort.
+    if (res.email_sent) {
+      toast('Task saved & email sent ✅');
+    } else {
+      toast('Task saved (email could not be sent)', true);
+    }
+
     await loadSavedTasks();
   } catch (err) {
     toast(`Save failed: ${(err as Error).message}`, true);

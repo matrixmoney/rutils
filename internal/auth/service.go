@@ -98,7 +98,7 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 		}
 
 		// User authenticated with temporary password; force password reset
-		token, err := GenerateToken(s.cfg, user.ID, user.Email, true)
+		token, err := GenerateToken(s.cfg, user.ID, user.Email, user.Name, true) // ⬅️ CHANGED
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate authentication token: %w", err)
 		}
@@ -128,7 +128,7 @@ func (s *AuthService) Login(req LoginRequest) (*LoginResponse, error) {
 		return nil, ErrInvalidCredentials
 	}
 
-	token, err := GenerateToken(s.cfg, user.ID, user.Email, false)
+	token, err := GenerateToken(s.cfg, user.ID, user.Email, user.Name, false) // ⬅️ CHANGED
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate authentication token: %w", err)
 	}

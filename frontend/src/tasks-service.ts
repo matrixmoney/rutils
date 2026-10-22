@@ -22,6 +22,7 @@ export interface TasksListResponse {
 export interface TaskResponse {
   success: boolean;
   task: Task;
+  email_sent: boolean;   // ⬅️ NEW
 }
 
 export interface TaskMessageResponse {

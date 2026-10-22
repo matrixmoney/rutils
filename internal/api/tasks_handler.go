@@ -1,22 +1,33 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
+	"time"
 
+	"file-converter/internal/auth" // ⬅️ NEW
 	"file-converter/internal/tasks"
 )
 
 // TasksHandler handles HTTP requests for the /tasks endpoints.
 type TasksHandler struct {
-	service *tasks.Service
+	service     *tasks.Service
+	emailSender *auth.EmailSender // ⬅️ NEW: nil-safe
 }
 
 // NewTasksHandler creates a new TasksHandler.
-func NewTasksHandler(service *tasks.Service) *TasksHandler {
-	return &TasksHandler{service: service}
+//
+// ⬅️ CHANGED: now accepts a *auth.EmailSender. Pass nil to disable email
+// dispatch entirely (e.g. in unit tests that don't want to touch SMTP).
+func NewTasksHandler(service *tasks.Service, emailSender *auth.EmailSender) *TasksHandler {
+	return &TasksHandler{
+		service:     service,
+		emailSender: emailSender,
+	}
 }
 
 // writeTasksError emits a JSON error envelope consistent with the
@@ -57,10 +68,10 @@ func (h *TasksHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Create inserts a new task.
+// Create inserts a new task and notifies the user by email.
 //
 // @Summary      Create a task
-// @Description  Creates a new task with text and a due date (YYYY-MM-DD). Requires Bearer JWT.
+// @Description  Creates a new task with text and a due date (YYYY-MM-DD). Requires Bearer JWT. On success, a confirmation email is dispatched to the authenticated user's email address; EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome.
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Accept       json
@@ -89,18 +100,89 @@ func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ⬅️ NEW: Fire the email. Best-effort: the task is already saved, so a
+	// dispatch failure must never turn this into an error response. The
+	// EmailSent field tells the client whether the message went out.
+	emailSent := h.dispatchTaskEmail(r.Context(), task)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(tasks.TaskResponse{
-		Success: true,
-		Task:    *task,
+		Success:   true,
+		Task:      *task,
+		EmailSent: emailSent,
 	})
+}
+
+// dispatchTaskEmail is the encapsulated "send the confirmation email"
+// step used by Create. It is deliberately a method on TasksHandler rather
+// than inline code so it can be unit-tested in isolation later.
+//
+// Behaviour:
+//   - returns false immediately if emailSender is nil (unit-test path)
+//   - returns false if the JWT claims are missing (should never happen —
+//     this handler is always wired behind api.RequireAuth — but defensive)
+//   - otherwise invokes SendTaskNotification under a hard 10-second
+//     timeout so a hung SMTP server cannot stall the HTTP response
+//
+// IMPORTANT: the SMTP call itself has no context parameter (it uses
+// smtp.SendMail internally, which blocks). We therefore enforce the
+// timeout by running it in a goroutine and selecting on time.After.
+// If the timeout fires first, the goroutine leaks until smtp.SendMail
+// returns on its own (bounded by the transport's internal 15s dial
+// timeout), but the HTTP response is guaranteed to leave within ~10s.
+func (h *TasksHandler) dispatchTaskEmail(ctx context.Context, task *tasks.Task) bool {
+	if h.emailSender == nil {
+		return false
+	}
+
+	claims, ok := GetUserClaims(ctx)
+	if !ok || claims.Email == "" {
+		log.Printf("[tasks] skipping email for task %s: no user claims in context", task.ID)
+		return false
+	}
+
+	// The SMTP call has no native context support, so we use a goroutine
+	// + select to enforce the 10-second cap at the handler boundary.
+	done := make(chan error, 1)
+	go func() {
+		done <- h.emailSender.SendTaskNotification(
+			claims.Email,
+			claims.Name,
+			task.Text,
+			task.DueDate,
+		)
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			log.Printf("[tasks] email dispatch failed for task %s to <%s>: %v",
+				task.ID, claims.Email, err)
+			return false
+		}
+		log.Printf("[tasks] email dispatched for task %s to <%s>",
+			task.ID, claims.Email)
+		return true
+
+	case <-time.After(10 * time.Second):
+		log.Printf("[tasks] email dispatch timed out (>10s) for task %s to <%s>; task is saved, email will not be sent",
+			task.ID, claims.Email)
+		return false
+
+	case <-ctx.Done():
+		// Client disconnected or request was cancelled. The task is
+		// already saved; just stop waiting for the email.
+		log.Printf("[tasks] request cancelled while dispatching email for task %s to <%s>",
+			task.ID, claims.Email)
+		return false
+	}
 }
 
 // Update mutates an existing task.
 //
 // @Summary      Update a task
-// @Description  Updates the text and due date of a task. Requires Bearer JWT.
+// @Description  Updates the text and due date of a task. Requires Bearer JWT. No email is dispatched on updates.
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Accept       json
@@ -142,10 +224,13 @@ func (h *TasksHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Edits intentionally do NOT send email — the feature is scoped to
+	// task creation. EmailSent is therefore always false here.
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(tasks.TaskResponse{
-		Success: true,
-		Task:    *task,
+		Success:   true,
+		Task:      *task,
+		EmailSent: false,
 	})
 }
 

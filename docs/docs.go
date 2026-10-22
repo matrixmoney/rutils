@@ -1363,7 +1363,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new task with text and a due date (YYYY-MM-DD). Requires Bearer JWT.",
+                "description": "Creates a new task with text and a due date (YYYY-MM-DD). Requires Bearer JWT. On success, a confirmation email is dispatched to the authenticated user's email address; EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1429,7 +1429,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the text and due date of a task. Requires Bearer JWT.",
+                "description": "Updates the text and due date of a task. Requires Bearer JWT. No email is dispatched on updates.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2865,6 +2865,10 @@ const docTemplate = `{
         "tasks.TaskResponse": {
             "type": "object",
             "properties": {
+                "email_sent": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "success": {
                     "type": "boolean",
                     "example": true

@@ -876,6 +876,9 @@ definitions:
     type: object
   tasks.TaskResponse:
     properties:
+      email_sent:
+        example: true
+        type: boolean
       success:
         example: true
         type: boolean
@@ -2011,7 +2014,9 @@ paths:
       consumes:
       - application/json
       description: Creates a new task with text and a due date (YYYY-MM-DD). Requires
-        Bearer JWT.
+        Bearer JWT. On success, a confirmation email is dispatched to the authenticated
+        user's email address; EmailSent reflects whether the dispatch succeeded. The
+        task is saved regardless of email outcome.
       parameters:
       - description: Create Task Request
         in: body
@@ -2091,7 +2096,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Updates the text and due date of a task. Requires Bearer JWT.
+      description: Updates the text and due date of a task. Requires Bearer JWT. No
+        email is dispatched on updates.
       parameters:
       - description: Task ID (e.g. tsk_ab12cd34)
         in: path

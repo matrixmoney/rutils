@@ -68,7 +68,8 @@ func TestJWTGenerationAndValidation(t *testing.T) {
 		JWTExpirationHours: 2,
 	}
 
-	tokenStr, err := GenerateToken(cfg, "user_123", "alice@example.com", false)
+	// ⬅️ CHANGED: GenerateToken now takes a `name` argument (5 args total).
+	tokenStr, err := GenerateToken(cfg, "user_123", "alice@example.com", "Alice Smith", false)
 	if err != nil {
 		t.Fatalf("GenerateToken failed: %v", err)
 	}
@@ -83,6 +84,11 @@ func TestJWTGenerationAndValidation(t *testing.T) {
 	}
 	if claims.Email != "alice@example.com" {
 		t.Errorf("expected email 'alice@example.com', got %q", claims.Email)
+	}
+	// ⬅️ NEW: assert the name round-trips through the signed token, since the
+	// tasks handler relies on claims.Name to personalise outgoing emails.
+	if claims.Name != "Alice Smith" {
+		t.Errorf("expected name 'Alice Smith', got %q", claims.Name)
 	}
 	if claims.MustResetPassword != false {
 		t.Errorf("expected mustReset false, got true")

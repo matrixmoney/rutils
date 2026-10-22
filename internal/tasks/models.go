@@ -32,6 +32,7 @@ type UpdateTaskRequest struct {
 type TaskResponse struct {
 	Success bool `json:"success" example:"true"`
 	Task    Task `json:"task"`
+	EmailSent bool `json:"email_sent" example:"true"` 
 }
 
 // TasksListResponse is the payload returned by GET /tasks.

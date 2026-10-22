@@ -491,6 +491,235 @@ The Rutils Team
 	return e.sendMail(toEmail, subject, textBody, htmlBody)
 }
 
+// ⬅️ NEW: SendTaskNotification sends a confirmation email to the authenticated
+// user whenever they create a task via POST /tasks.
+//
+// Arguments:
+//   - toEmail:  the logged-in user's email (from the JWT claims)
+//   - userName: the logged-in user's name (from the JWT claims; may be empty)
+//   - taskText: the exact text the user typed into the Saya/textarea
+//   - dueDate:  the due date in YYYY-MM-DD format
+//
+// The email is dispatched synchronously (see internal/api/tasks_handler.go
+// for the timeout wrapper). When SMTP is not configured, this method logs
+// a single development-fallback line to stdout, matching the pattern used
+// by SendTemporaryPassword and SendPasswordChangedNotification.
+func (e *EmailSender) SendTaskNotification(toEmail, userName, taskText, dueDate string) error {
+	if !e.IsConfigured() {
+		log.Printf("[AUTH-DEV] SMTP not configured in config.json. Task notification for <%s> simulated: text=%q due=%q",
+			toEmail, taskText, dueDate)
+		return nil
+	}
+
+	greeting := "Hello,"
+	if strings.TrimSpace(userName) != "" {
+		greeting = fmt.Sprintf("Hello %s,", userName)
+	}
+
+	// Truncate very long task texts for the subject line so the email
+	// header stays well under RFC limits. The body carries the full text.
+	subjectSnippet := taskText
+	if len(subjectSnippet) > 60 {
+		subjectSnippet = subjectSnippet[:57] + "..."
+	}
+	subjectSnippet = strings.ReplaceAll(subjectSnippet, "\n", " ")
+	subjectSnippet = strings.ReplaceAll(subjectSnippet, "\r", " ")
+	subject := fmt.Sprintf("📌 Task Created: %s", subjectSnippet)
+
+	textBody := fmt.Sprintf(
+`%s
+
+Your task has been successfully created and saved in Rutils.
+
+--------------------------------------------------
+TASK:
+  %s
+
+DUE DATE:
+  %s
+--------------------------------------------------
+
+You can view, edit, or delete this task anytime from the Tasks section of the app.
+
+Warm regards,
+The Rutils Team
+`, greeting, taskText, dueDate)
+
+	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Created</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #334155;
+      -webkit-font-smoothing: antialiased;
+    }
+    table { border-collapse: collapse; }
+    .wrapper {
+      width: 100%%;
+      background-color: #f1f5f9;
+      padding: 40px 12px;
+    }
+    .card {
+      max-width: 580px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+      border: 1px solid #e2e8f0;
+    }
+    .banner {
+      background: linear-gradient(135deg, #4f46e5 0%%, #7c3aed 50%%, #06b6d4 100%%);
+      padding: 32px 30px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .brand-sub {
+      font-size: 13px;
+      opacity: 0.92;
+      margin-top: 6px;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+    .body-content {
+      padding: 32px 32px 24px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #475569;
+      margin: 0 0 16px 0;
+    }
+    .task-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin: 20px 0;
+    }
+    .task-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: #6366f1;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .task-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: #0f172a;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0 0 16px 0;
+    }
+    .task-divider {
+      border: 0;
+      border-top: 1px solid #e2e8f0;
+      margin: 16px 0;
+    }
+    .due-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: #0ea5e9;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .due-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0f172a;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    }
+    .signoff {
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 14px;
+      color: #475569;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 22px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <table role="presentation" class="wrapper">
+    <tr>
+      <td align="center">
+        <div class="card">
+          <div class="banner">
+            <h1 class="brand-title">Rutils Tasks</h1>
+            <div class="brand-sub">Your Task Was Created</div>
+          </div>
+          <div class="body-content" align="left">
+            <div class="greeting">%s</div>
+            <p>Your task has been successfully created and saved in Rutils.</p>
+
+            <div class="task-card">
+              <span class="task-label">📝 Task</span>
+              <div class="task-text">%s</div>
+              <hr class="task-divider">
+              <span class="due-label">🗓 Due Date</span>
+              <div class="due-value">%s</div>
+            </div>
+
+            <p>You can view, edit, or delete this task anytime from the <strong>Tasks</strong> section of the app.</p>
+
+            <div class="signoff">
+              Warm regards,<br>
+              <strong style="color: #1e293b;">The Rutils Team</strong>
+            </div>
+          </div>
+          <div class="footer">
+            This is an automated notification from Rutils.<br>
+            Please do not reply directly to this email.<br>
+            &copy; 2026 Rutils. All rights reserved.
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+		html.EscapeString(greeting),
+		html.EscapeString(taskText),
+		html.EscapeString(dueDate),
+	)
+
+	return e.sendMail(toEmail, subject, textBody, htmlBody)
+}
+
 // buildMultipartMessage creates a MIME multipart/alternative message (plain text + HTML)
 func buildMultipartMessage(fromEmail, fromName, toEmail, subject, textBody, htmlBody string) []byte {
 	boundary := fmt.Sprintf("bnd_%d_%d", time.Now().UnixNano(), rand.Int63())

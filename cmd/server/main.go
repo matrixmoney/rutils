@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -94,9 +95,24 @@ func main() {
 	// Authentication Service & Endpoints
 	// ============================================================
 	cfg, err := auth.LoadConfig("config.json")
-	if err != nil {
-		log.Printf("[WARN] Failed to load config.json, using defaults: %v", err)
-		cfg = auth.DefaultConfig()
+	switch {
+	case errors.Is(err, auth.ErrConfigNotFound):
+		// The config file was not found on ANY search path. The
+		// returned cfg is DefaultConfig() (SMTP disabled), so the
+		// rest of the server still boots — but we make it LOUD
+		// because "no email is being sent" is a silent-only failure
+		// otherwise.
+		log.Printf("=========================================================")
+		log.Printf("[AUTH-WARN] config.json was not found on any search path.")
+		log.Printf("[AUTH-WARN] SMTP is DISABLED. Emails (temporary passwords,")
+		log.Printf("[AUTH-WARN] task notifications) will be LOGGED TO STDOUT only.")
+		log.Printf("[AUTH-WARN] To fix: create config.json in the project root")
+		log.Printf("[AUTH-WARN] with 'smtp_email' and 'smtp_app_password' set.")
+		log.Printf("=========================================================")
+	case err != nil:
+		// The file was found but is malformed JSON, or has some other
+		// parse error. That's a real bug in the config — abort loudly.
+		log.Fatalf("[AUTH-FATAL] config.json is malformed: %v", err)
 	}
 
 	userStore, err := auth.NewStore(cfg.GetUsersFilePath())
@@ -140,7 +156,7 @@ func main() {
 		log.Fatalf("Failed to initialize tasks store: %v", err)
 	}
 	tasksService := tasks.NewService(tasksStore)
-	tasksHandler := api.NewTasksHandler(tasksService)
+	tasksHandler := api.NewTasksHandler(tasksService, emailSender) // ⬅️ NEW: pass the sender
 
 	apiMux.HandleFunc("/tasks", api.RequireAuth(cfg, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
