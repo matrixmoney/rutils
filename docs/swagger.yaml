@@ -814,34 +814,6 @@ definitions:
           $ref: '#/definitions/formatters.FormatInfo'
         type: object
     type: object
-  nifty.CompaniesResponse:
-    properties:
-      companies:
-        items:
-          $ref: '#/definitions/nifty.Company'
-        type: array
-      count:
-        type: integer
-      error:
-        type: string
-      success:
-        type: boolean
-      updated_at:
-        type: string
-    type: object
-  nifty.Company:
-    properties:
-      company_name:
-        type: string
-      industry:
-        type: string
-      isin:
-        type: string
-      series:
-        type: string
-      symbol:
-        type: string
-    type: object
   tasks.CreateTaskRequest:
     properties:
       due_date:
@@ -1949,40 +1921,6 @@ paths:
       summary: Describe a single format
       tags:
       - Format Registry
-  /nifty50/companies:
-    get:
-      consumes:
-      - application/json
-      description: Returns the latest official 50 NIFTY 50 constituent companies.
-        Requires JWT Authentication.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/nifty.CompaniesResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-        "503":
-          description: NIFTY 50 data is currently unavailable
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get NIFTY 50 Constituent Companies
-      tags:
-      - markets
   /tasks:
     get:
       description: Returns every saved task, newest first. Requires Bearer JWT.

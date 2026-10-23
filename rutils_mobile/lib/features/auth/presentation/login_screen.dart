@@ -151,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ).animate().fadeIn(delay: 200.ms).slideY(begin: -0.2, end: 0),
                       const SizedBox(height: 6),
                       Text(
-                        'Universal File Converter, Calculators & Markets Suite',
+                        'Universal File Converter & Calculators Suite',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 13,

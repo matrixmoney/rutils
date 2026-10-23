@@ -1258,57 +1258,6 @@
                 }
             }
         },
-        "/nifty50/companies": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns the latest official 50 NIFTY 50 constituent companies. Requires JWT Authentication.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "markets"
-                ],
-                "summary": "Get NIFTY 50 Constituent Companies",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/nifty.CompaniesResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "503": {
-                        "description": "NIFTY 50 data is currently unavailable",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/tasks": {
             "get": {
                 "security": [
@@ -2763,49 +2712,6 @@
                     "additionalProperties": {
                         "$ref": "#/definitions/formatters.FormatInfo"
                     }
-                }
-            }
-        },
-        "nifty.CompaniesResponse": {
-            "type": "object",
-            "properties": {
-                "companies": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/nifty.Company"
-                    }
-                },
-                "count": {
-                    "type": "integer"
-                },
-                "error": {
-                    "type": "string"
-                },
-                "success": {
-                    "type": "boolean"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "nifty.Company": {
-            "type": "object",
-            "properties": {
-                "company_name": {
-                    "type": "string"
-                },
-                "industry": {
-                    "type": "string"
-                },
-                "isin": {
-                    "type": "string"
-                },
-                "series": {
-                    "type": "string"
-                },
-                "symbol": {
-                    "type": "string"
                 }
             }
         },

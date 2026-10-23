@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -10,10 +9,8 @@ import (
 	_ "file-converter/docs" // Import swagger docs
 	"file-converter/internal/api"
 	"file-converter/internal/auth"
-	"file-converter/internal/chart"
 	"file-converter/internal/converter" // NEW: for CheckExtractDependencies()
 	_ "file-converter/internal/formatters"
-	"file-converter/internal/nifty"
     "file-converter/internal/tasks"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
@@ -137,18 +134,6 @@ func main() {
 	apiMux.HandleFunc("/auth/reset-password", api.RequireAuth(cfg, authHandler.ResetPassword))
 	apiMux.HandleFunc("/auth/change-password", api.RequireAuth(cfg, authHandler.ChangePassword))
 	apiMux.HandleFunc("/auth/me", api.RequireAuth(cfg, authHandler.Me))
-	// ⬅️ NEW: Borrower-centric Loan Tenure Calculator
-
-	// ⬅️ NEW: NIFTY 50 Market Data Service & Endpoint (Authenticated)
-	niftyStorage := nifty.NewFileStorage("data/nifty50.json")
-	niftyClient := nifty.NewNSEClient()
-	niftyService := nifty.NewService(niftyStorage, niftyClient)
-	niftyHandler := api.NewNiftyHandler(niftyService)
-
-	// Infuse in-process daily cron scheduler (10:00 AM IST with catch-up on boot)
-	niftyService.StartScheduler(context.Background())
-
-	apiMux.HandleFunc("/nifty50/companies", api.RequireAuth(cfg, niftyHandler.GetCompanies))
 
 	// ⬅️ NEW: Tasks (phone-notes style) Service & Endpoints (Authenticated)
 	tasksStore, err := tasks.NewStore(cfg.GetDataDir() + "/tasks.json")
@@ -183,14 +168,6 @@ func main() {
 			_, _ = w.Write([]byte(`{"error":"Method not allowed"}`))
 		}
 	}))
-	// ⬅️ NEW: Technical Chart Service & Endpoints (Authenticated)
-	chartService := chart.NewService("data/nse/data", niftyStorage)
-	chartHandler := api.NewChartHandler(chartService)
-
-	apiMux.HandleFunc("/market/chart/companies", chartHandler.GetCompanies)
-	apiMux.HandleFunc("/market/chart/data", chartHandler.GetChartData)
-	apiMux.HandleFunc("/api/market/chart/companies", chartHandler.GetCompanies)
-	apiMux.HandleFunc("/api/market/chart/data", chartHandler.GetChartData)
 
 	// ── Repair engine ─────────────────────────────────────────
 	apiMux.HandleFunc("/repair", api.HandleRepair)
@@ -250,10 +227,6 @@ func main() {
 	fmt.Println(" -> POST   http://localhost:8080/tasks                   (Create Task)")
 	fmt.Println(" -> PUT    http://localhost:8080/tasks/{id}              (Update Task)")
 	fmt.Println(" -> DELETE http://localhost:8080/tasks/{id}              (Delete Task)")
-	fmt.Println("Markets (Authenticated):")
-	fmt.Println(" -> GET  http://localhost:8080/nifty50/companies      (NIFTY 50 Constituents)")
-	fmt.Println(" -> GET  http://localhost:8080/market/chart/companies (Technical Chart Companies)")
-	fmt.Println(" -> GET  http://localhost:8080/market/chart/data      (Technical Chart OHLCV & Indicators)")
 	fmt.Println("Documentation:")
 	fmt.Println(" -> GET  http://localhost:8080/swagger/doc.json       (Swagger JSON)")
 	fmt.Println(" -> GET  http://localhost:8080/swagger/               (Swagger UI)")

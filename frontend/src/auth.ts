@@ -127,23 +127,3 @@ export async function apiGetMe(token: string): Promise<UserResponse> {
   return apiGet<UserResponse>('/auth/me', token);
 }
 
-// ─── Markets API calls ───────────────────────────────────────
-export interface NiftyCompany {
-  company_name: string;
-  industry: string;
-  symbol: string;
-  series: string;
-  isin: string;
-}
-
-export interface NiftyResponse {
-  success: boolean;
-  updated_at: string;
-  count: number;
-  companies: NiftyCompany[];
-  error?: string;
-}
-
-export async function apiGetNiftyCompanies(token: string): Promise<NiftyResponse> {
-  return apiGet<NiftyResponse>('/nifty50/companies', token);
-}

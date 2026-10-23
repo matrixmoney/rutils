@@ -4,7 +4,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/bouncy_button.dart';
 import '../../calculations/presentation/calculations_hub_screen.dart';
 import '../../conversion/presentation/conversion_hub_screen.dart';
-import '../../markets/presentation/markets_hub_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 
 class MainNavScaffold extends StatefulWidget {
@@ -21,7 +20,6 @@ class _MainNavScaffoldState extends State<MainNavScaffold> with SingleTickerProv
   final List<Widget> _screens = const [
     ConversionHubScreen(),
     CalculationsHubScreen(),
-    MarketsHubScreen(),
     ProfileScreen(),
   ];
 
@@ -37,12 +35,6 @@ class _MainNavScaffoldState extends State<MainNavScaffold> with SingleTickerProv
       subtitle: 'EMI, BMI, Tax/GST, Age & Percentage',
       icon: Icons.calculate_outlined,
       activeIcon: Icons.calculate_rounded,
-    ),
-    (
-      label: 'Markets',
-      subtitle: 'Nifty 50 & INK Technical Charts',
-      icon: Icons.trending_up_outlined,
-      activeIcon: Icons.trending_up_rounded,
     ),
     (
       label: 'Profile',

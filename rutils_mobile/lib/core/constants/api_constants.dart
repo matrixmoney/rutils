@@ -49,9 +49,4 @@ class ApiConstants {
   static const String calculatePercentage = '/calculate-percentage';
   static const String calculateEmi = '/calculate-emi';
   static const String calculateTax = '/calculate-tax';
-
-  // Markets
-  static const String niftyCompanies = '/nifty50/companies';
-  static const String chartCompanies = '/market/chart/companies';
-  static const String chartData = '/market/chart/data';
 }
