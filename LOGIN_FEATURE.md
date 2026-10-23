@@ -122,14 +122,14 @@ All user passwords must satisfy the following strict complexity requirements:
      "message": "Login successful"
    }
    ```
-2. For protected endpoints (`/auth/reset-password`, `/auth/change-password`, `/auth/me`, `/tasks`, `/nifty50/companies`), include the token in the HTTP `Authorization` header:
+2. For protected endpoints (`/auth/reset-password`, `/auth/change-password`, `/auth/me`, `/tasks`, `/tasks/{id}`, `/nifty50/companies`), include the token in the HTTP `Authorization` header:
    ```http
    Authorization: Bearer <YOUR_JWT_TOKEN>
    ```
 3. **Forced Reset Workflow**: If a user logs in using a temporary password issued via `/auth/forgot-password`:
    - `must_reset_password` is set to `true` in the JWT claims and login response.
    - The user must call `POST /auth/reset-password` with their new password before continuing normal operations.
-4. **Embedded Claims**: every signed token carries `user_id`, `email`, `name`, and `must_reset_password`. The `name` claim is used by downstream handlers (e.g. the tasks email dispatcher) to personalise outgoing emails without a second user-store lookup.
+4. **Embedded Claims**: every signed token carries `user_id`, `email`, `name`, and `must_reset_password`. The `name` claim is used by downstream handlers (e.g. the tasks email dispatcher) to personalise outgoing emails without a second user-store lookup. The `user_id` claim is the authoritative owner for tasks and is enforced by every task endpoint (see **Section 7b**).
 
 ---
 
@@ -266,6 +266,7 @@ All user passwords must satisfy the following strict complexity requirements:
     "due_date": "2026-11-05"
   }
   ```
+  > **Note:** the request body has **no `user_id` field** by design. The owner is derived from the JWT. Clients cannot create tasks on behalf of another user.
 - **Responses**:
   - `201 Created`:
     ```json
@@ -273,6 +274,7 @@ All user passwords must satisfy the following strict complexity requirements:
       "success": true,
       "task": {
         "id": "tsk_f1cecc9ba262012e",
+        "user_id": "usr_94e5088c4b18cb6a",
         "text": "Buy groceries for the weekend",
         "due_date": "2026-11-05",
         "created_at": "2026-10-22T12:00:00Z",
@@ -284,6 +286,59 @@ All user passwords must satisfy the following strict complexity requirements:
   - `400 Bad Request`: Validation failure (empty text, missing/invalid due_date, or text > 2000 chars).
   - `401 Unauthorized`: Missing or invalid Bearer token.
 - **Email behaviour**: On success, the backend dispatches a confirmation email to the authenticated user's email address. See **Section 7 — Task Created Notification** below for full details on the email contents, the `email_sent` field semantics, and the best-effort dispatch guarantees.
+- **Ownership**: The task is stamped with the caller's `user_id` at creation. See **Section 7b — Task Ownership & User Scoping** for the complete enforcement model.
+
+### 9. List Tasks
+- **Route**: `GET /tasks`
+- **Access**: Authenticated (`Authorization: Bearer <token>`)
+- **Responses**:
+  - `200 OK`: Returns only the tasks owned by the caller, newest first.
+    ```json
+    {
+      "success": true,
+      "tasks": [
+        {
+          "id": "tsk_f1cecc9ba262012e",
+          "user_id": "usr_94e5088c4b18cb6a",
+          "text": "Buy groceries for the weekend",
+          "due_date": "2026-11-05",
+          "created_at": "2026-10-22T12:00:00Z",
+          "updated_at": "2026-10-22T12:00:00Z"
+        }
+      ]
+    }
+    ```
+  - `401 Unauthorized`: Missing or invalid Bearer token.
+
+### 10. Update Task
+- **Route**: `PUT /tasks/{id}`
+- **Access**: Authenticated (`Authorization: Bearer <token>`)
+- **Request Body**:
+  ```json
+  {
+    "text": "Buy groceries (rescheduled)",
+    "due_date": "2026-11-12"
+  }
+  ```
+- **Responses**:
+  - `200 OK`: Returns the updated task.
+  - `400 Bad Request`: Validation error.
+  - `401 Unauthorized`: Missing or invalid Bearer token.
+  - `404 Not Found`: The task does not exist **or is not owned by the caller** (indistinguishable by design).
+
+### 11. Delete Task
+- **Route**: `DELETE /tasks/{id}`
+- **Access**: Authenticated (`Authorization: Bearer <token>`)
+- **Responses**:
+  - `200 OK`:
+    ```json
+    {
+      "success": true,
+      "message": "Task deleted successfully"
+    }
+    ```
+  - `401 Unauthorized`: Missing or invalid Bearer token.
+  - `404 Not Found`: The task does not exist **or is not owned by the caller** (indistinguishable by design).
 
 ---
 
@@ -337,6 +392,56 @@ When an authenticated user creates a task via the **Tasks** view, the backend di
 
 ---
 
+## 7b. Task Ownership & User Scoping
+
+Every task is **owned by exactly one user**. The owner is set from the authenticated JWT at creation time and can never be forged by the client.
+
+### How ownership is enforced
+
+| Layer | Responsibility |
+|---|---|
+| `internal/auth/jwt.go` | Signs the `user_id` claim into every token. |
+| `internal/api/tasks_handler.go` | Extracts `claims.UserID` from the request context and passes it to the service. A missing claim returns **401 Unauthorized**. |
+| `internal/tasks/service.go` | Rejects an empty `userID` defensively (belt-and-braces against a handler bug). |
+| `internal/tasks/store.go` | Filters by `UserID` on `ListByUser`; checks it on `Update`/`Delete` before mutating. |
+| `internal/tasks/models.go` | The `CreateTaskRequest` / `UpdateTaskRequest` structs deliberately have **no `user_id` field** — clients cannot set the owner. |
+
+### Cross-user access behaviour
+
+A task that exists but belongs to another user responds **exactly as if it did not exist**:
+
+- `PUT /tasks/{id}` → **404 Not Found**
+- `DELETE /tasks/{id}` → **404 Not Found**
+- `GET /tasks` → the task simply does not appear in the list
+
+Returning **404 instead of 403** is a deliberate security decision. It prevents a malicious user from enumerating valid task IDs by probing for `403 Forbidden` responses.
+
+### Legacy task migration
+
+Tasks stored in `data/tasks.json` **before** the scoping feature have no `user_id`. They are:
+
+- **Preserved on disk** — never deleted.
+- **Invisible to every user** — `ListByUser` requires an exact match against a non-empty owner.
+- **Counted and logged** at server startup:
+
+  ```text
+  [tasks] 3 legacy task(s) with no owner detected; they will not appear in any user's list
+  ```
+
+If you need to recover a legacy task, edit `data/tasks.json` directly and add a `"user_id": "usr_..."` value matching a real account.
+
+### Frontend Task Export
+
+The **Export** button in the Tasks view lets a user download their own saved tasks as **CSV** or **JSON**.
+
+- **Where it lives**: top-right of the My Tasks header, next to the Refresh button. Disabled when there are no saved tasks.
+- **Where the data comes from**: the in-memory `allTasks` array, which was populated by `GET /tasks` — so it is already user-scoped by the backend.
+- **What the CSV contains**: columns `id, text, due_date, created_at, updated_at`. Cells are RFC 4180-quoted, and any cell starting with `= + - @` is prefixed with a single quote to prevent spreadsheet formula injection.
+- **Filename**: `my-tasks-YYYY-MM-DD.csv` or `my-tasks-YYYY-MM-DD.json`.
+- **No server round-trip**: the file is generated entirely in the browser. If a server-side export is ever needed (e.g. scheduled email of tasks as CSV), a `GET /tasks/export` endpoint can be added later without changing the current client behaviour.
+
+---
+
 ## 8. Swagger Documentation
 
 All authentication endpoints are fully documented and integrated with Swagger UI:
@@ -365,7 +470,7 @@ go test -v ./internal/auth
 # Run end-to-end API integration tests (includes auth + CORS)
 go test -v ./cmd/server -run TestAuth
 
-# Run tasks handler regression tests (nil-sender safety, response shape)
+# Run tasks handler regression tests (nil-sender safety, response shape, cross-user isolation)
 go test -v ./internal/api -run TestTasksHandler
 
 # Run entire test suite

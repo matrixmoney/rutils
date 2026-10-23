@@ -18,6 +18,11 @@ var (
 const maxTextLength = 2000
 
 // Service encapsulates the business rules for tasks.
+//
+// Every method takes the caller's userID as its first argument. The
+// service never assumes identity — it is the handler's job to extract
+// it from the JWT. This keeps the service trivially testable and makes
+// the ownership boundary explicit at every call site.
 type Service struct {
 	store *Store
 }
@@ -27,22 +32,32 @@ func NewService(store *Store) *Service {
 	return &Service{store: store}
 }
 
-// List returns all saved tasks, newest first.
-func (s *Service) List() ([]Task, error) {
-	return s.store.List()
+// List returns all tasks owned by userID, newest first.
+func (s *Service) List(userID string) ([]Task, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errors.New("user ID is required")
+	}
+	return s.store.ListByUser(userID)
 }
 
-// Create validates and persists a new task.
-func (s *Service) Create(text, dueDate string) (*Task, error) {
+// Create validates and persists a new task owned by userID.
+func (s *Service) Create(userID, text, dueDate string) (*Task, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errors.New("user ID is required")
+	}
 	text, dueDate, err := validateFields(text, dueDate)
 	if err != nil {
 		return nil, err
 	}
-	return s.store.Create(text, dueDate)
+	return s.store.Create(userID, text, dueDate)
 }
 
-// Update validates and persists an edit to an existing task.
-func (s *Service) Update(id, text, dueDate string) (*Task, error) {
+// Update validates and persists an edit to an existing task, but only
+// if the task is owned by userID.
+func (s *Service) Update(userID, id, text, dueDate string) (*Task, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errors.New("user ID is required")
+	}
 	if strings.TrimSpace(id) == "" {
 		return nil, ErrTaskNotFound
 	}
@@ -50,15 +65,18 @@ func (s *Service) Update(id, text, dueDate string) (*Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.store.Update(id, text, dueDate)
+	return s.store.Update(userID, id, text, dueDate)
 }
 
-// Delete removes a task by ID.
-func (s *Service) Delete(id string) error {
+// Delete removes a task by ID, but only if it is owned by userID.
+func (s *Service) Delete(userID, id string) error {
+	if strings.TrimSpace(userID) == "" {
+		return errors.New("user ID is required")
+	}
 	if strings.TrimSpace(id) == "" {
 		return ErrTaskNotFound
 	}
-	return s.store.Delete(id)
+	return s.store.Delete(userID, id)
 }
 
 // validateFields trims whitespace and enforces the field rules.

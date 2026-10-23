@@ -9,25 +9,19 @@ import (
 	"strings"
 	"time"
 
-	"file-converter/internal/auth" // ⬅️ NEW
+	"file-converter/internal/auth"
 	"file-converter/internal/tasks"
 )
 
 // TasksHandler handles HTTP requests for the /tasks endpoints.
 type TasksHandler struct {
 	service     *tasks.Service
-	emailSender *auth.EmailSender // ⬅️ NEW: nil-safe
+	emailSender *auth.EmailSender
 }
 
 // NewTasksHandler creates a new TasksHandler.
-//
-// ⬅️ CHANGED: now accepts a *auth.EmailSender. Pass nil to disable email
-// dispatch entirely (e.g. in unit tests that don't want to touch SMTP).
 func NewTasksHandler(service *tasks.Service, emailSender *auth.EmailSender) *TasksHandler {
-	return &TasksHandler{
-		service:     service,
-		emailSender: emailSender,
-	}
+	return &TasksHandler{service: service, emailSender: emailSender}
 }
 
 // writeTasksError emits a JSON error envelope consistent with the
@@ -38,10 +32,10 @@ func writeTasksError(w http.ResponseWriter, status int, msg string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-// List returns every saved task.
+// List returns only the caller's tasks.
 //
 // @Summary      List all tasks
-// @Description  Returns every saved task, newest first. Requires Bearer JWT.
+// @Description  Returns every task OWNED BY THE AUTHENTICATED USER, newest first. Requires Bearer JWT. Tasks belonging to other users are never returned.
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Produce      json
@@ -55,7 +49,13 @@ func (h *TasksHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	list, err := h.service.List()
+	claims, ok := GetUserClaims(r.Context())
+	if !ok || claims.UserID == "" {
+		writeTasksError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	list, err := h.service.List(claims.UserID)
 	if err != nil {
 		writeTasksError(w, http.StatusInternalServerError, "Failed to load tasks: "+err.Error())
 		return
@@ -68,10 +68,10 @@ func (h *TasksHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Create inserts a new task and notifies the user by email.
+// Create inserts a new task owned by the caller and notifies them by email.
 //
 // @Summary      Create a task
-// @Description  Creates a new task with text and a due date (YYYY-MM-DD). Requires Bearer JWT. On success, a confirmation email is dispatched to the authenticated user's email address; EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome.
+// @Description  Creates a new task owned by the authenticated user. The owner is derived from the JWT — the client cannot set it. On success, a confirmation email is dispatched to the user's email address; EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome.
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Accept       json
@@ -88,21 +88,24 @@ func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claims, ok := GetUserClaims(r.Context())
+	if !ok || claims.UserID == "" {
+		writeTasksError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	var req tasks.CreateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeTasksError(w, http.StatusBadRequest, "Invalid JSON body")
 		return
 	}
 
-	task, err := h.service.Create(req.Text, req.DueDate)
+	task, err := h.service.Create(claims.UserID, req.Text, req.DueDate)
 	if err != nil {
 		writeTasksError(w, http.StatusBadRequest, mapTaskError(err))
 		return
 	}
 
-	// ⬅️ NEW: Fire the email. Best-effort: the task is already saved, so a
-	// dispatch failure must never turn this into an error response. The
-	// EmailSent field tells the client whether the message went out.
 	emailSent := h.dispatchTaskEmail(r.Context(), task)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -114,23 +117,8 @@ func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// dispatchTaskEmail is the encapsulated "send the confirmation email"
-// step used by Create. It is deliberately a method on TasksHandler rather
-// than inline code so it can be unit-tested in isolation later.
-//
-// Behaviour:
-//   - returns false immediately if emailSender is nil (unit-test path)
-//   - returns false if the JWT claims are missing (should never happen —
-//     this handler is always wired behind api.RequireAuth — but defensive)
-//   - otherwise invokes SendTaskNotification under a hard 10-second
-//     timeout so a hung SMTP server cannot stall the HTTP response
-//
-// IMPORTANT: the SMTP call itself has no context parameter (it uses
-// smtp.SendMail internally, which blocks). We therefore enforce the
-// timeout by running it in a goroutine and selecting on time.After.
-// If the timeout fires first, the goroutine leaks until smtp.SendMail
-// returns on its own (bounded by the transport's internal 15s dial
-// timeout), but the HTTP response is guaranteed to leave within ~10s.
+// dispatchTaskEmail is unchanged from the previous implementation —
+// it already reads claims.Email and claims.Name from context.
 func (h *TasksHandler) dispatchTaskEmail(ctx context.Context, task *tasks.Task) bool {
 	if h.emailSender == nil {
 		return false
@@ -142,8 +130,6 @@ func (h *TasksHandler) dispatchTaskEmail(ctx context.Context, task *tasks.Task) 
 		return false
 	}
 
-	// The SMTP call has no native context support, so we use a goroutine
-	// + select to enforce the 10-second cap at the handler boundary.
 	done := make(chan error, 1)
 	go func() {
 		done <- h.emailSender.SendTaskNotification(
@@ -171,18 +157,16 @@ func (h *TasksHandler) dispatchTaskEmail(ctx context.Context, task *tasks.Task) 
 		return false
 
 	case <-ctx.Done():
-		// Client disconnected or request was cancelled. The task is
-		// already saved; just stop waiting for the email.
 		log.Printf("[tasks] request cancelled while dispatching email for task %s to <%s>",
 			task.ID, claims.Email)
 		return false
 	}
 }
 
-// Update mutates an existing task.
+// Update mutates an existing task owned by the caller.
 //
 // @Summary      Update a task
-// @Description  Updates the text and due date of a task. Requires Bearer JWT. No email is dispatched on updates.
+// @Description  Updates the text and due date of a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from "not found" — no information leak). Requires Bearer JWT. No email is dispatched on updates.
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Accept       json
@@ -201,6 +185,12 @@ func (h *TasksHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claims, ok := GetUserClaims(r.Context())
+	if !ok || claims.UserID == "" {
+		writeTasksError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	id := strings.TrimPrefix(r.URL.Path, "/tasks/")
 	id = strings.Trim(id, "/")
 	if id == "" {
@@ -214,7 +204,7 @@ func (h *TasksHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.service.Update(id, req.Text, req.DueDate)
+	task, err := h.service.Update(claims.UserID, id, req.Text, req.DueDate)
 	if err != nil {
 		if errors.Is(err, tasks.ErrTaskNotFound) {
 			writeTasksError(w, http.StatusNotFound, "Task not found")
@@ -224,8 +214,6 @@ func (h *TasksHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Edits intentionally do NOT send email — the feature is scoped to
-	// task creation. EmailSent is therefore always false here.
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(tasks.TaskResponse{
 		Success:   true,
@@ -234,10 +222,10 @@ func (h *TasksHandler) Update(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Delete removes a task.
+// Delete removes a task owned by the caller.
 //
 // @Summary      Delete a task
-// @Description  Deletes the task identified by ID. Requires Bearer JWT.
+// @Description  Deletes a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from "not found" — no information leak). Requires Bearer JWT.
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Produce      json
@@ -253,6 +241,12 @@ func (h *TasksHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claims, ok := GetUserClaims(r.Context())
+	if !ok || claims.UserID == "" {
+		writeTasksError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	id := strings.TrimPrefix(r.URL.Path, "/tasks/")
 	id = strings.Trim(id, "/")
 	if id == "" {
@@ -260,7 +254,7 @@ func (h *TasksHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.Delete(id); err != nil {
+	if err := h.service.Delete(claims.UserID, id); err != nil {
 		if errors.Is(err, tasks.ErrTaskNotFound) {
 			writeTasksError(w, http.StatusNotFound, "Task not found")
 			return
@@ -277,8 +271,6 @@ func (h *TasksHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // mapTaskError translates service errors into human-readable messages.
-// The service always returns one of the sentinel errors defined in
-// internal/tasks/service.go, so this is a straightforward mapping.
 func mapTaskError(err error) string {
 	switch {
 	case errors.Is(err, tasks.ErrEmptyText):

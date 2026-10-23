@@ -140,6 +140,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize tasks store: %v", err)
 	}
+	// Ownership migration notice: any task without a user_id predates
+	// the user-scoping feature and will not appear in any user's list.
+	// Log a single line so operators are not surprised.
+	if orphans, oerr := tasksStore.CountOrphans(); oerr == nil && orphans > 0 {
+		log.Printf("[tasks] %d legacy task(s) with no owner detected; they will not appear in any user's list", orphans)
+	}
 	tasksService := tasks.NewService(tasksStore)
 	tasksHandler := api.NewTasksHandler(tasksService, emailSender) // ⬅️ NEW: pass the sender
 

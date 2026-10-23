@@ -1,0 +1,49 @@
+package tasks
+
+import "time"
+
+// Task represents a single user task in data/tasks.json.
+type Task struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"` 
+	Text      string    `json:"text"`
+	DueDate   string    `json:"due_date"` // YYYY-MM-DD
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// TaskList is the on-disk structure of data/tasks.json.
+type TaskList struct {
+	Tasks []Task `json:"tasks"`
+}
+
+// CreateTaskRequest is the payload for POST /tasks.
+type CreateTaskRequest struct {
+	Text    string `json:"text" example:"Call the dentist"`
+	DueDate string `json:"due_date" example:"2026-11-05"`
+}
+
+// UpdateTaskRequest is the payload for PUT /tasks/{id}.
+type UpdateTaskRequest struct {
+	Text    string `json:"text" example:"Call the dentist (rescheduled)"`
+	DueDate string `json:"due_date" example:"2026-11-12"`
+}
+
+// TaskResponse is the payload returned by create / update endpoints.
+type TaskResponse struct {
+	Success bool `json:"success" example:"true"`
+	Task    Task `json:"task"`
+	EmailSent bool `json:"email_sent" example:"true"` 
+}
+
+// TasksListResponse is the payload returned by GET /tasks.
+type TasksListResponse struct {
+	Success bool   `json:"success" example:"true"`
+	Tasks   []Task `json:"tasks"`
+}
+
+// MessageResponse is the payload returned by DELETE /tasks/{id}.
+type MessageResponse struct {
+	Success bool   `json:"success" example:"true"`
+	Message string `json:"message" example:"Task deleted successfully"`
+}

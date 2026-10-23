@@ -1,19 +1,5 @@
 // ============================================================
 // TASKS-UI.TS — Notes-style task view controller
-//
-// Reads from and writes to the #tasks-view block in index.html.
-// Idempotent init: initTasks() can be called many times without
-// re-wiring listeners.
-//
-// Responsibilities:
-//   1. Render the "new task" card (textarea + date input + SEND)
-//   2. Save a new task via tasks-service.createTask()
-//   3. List saved tasks; toggle each card into edit mode on demand
-//   4. Save an edit via tasks-service.updateTask()
-//   5. Delete a task via tasks-service.deleteTask()
-//
-// The HTML skeleton (view container + form + list) lives in
-// index.html. This file only wires behavior.
 // ============================================================
 
 import { getAuthState } from './auth';
@@ -22,20 +8,18 @@ import {
   createTask,
   updateTask,
   deleteTask,
+  exportTasks,
+  downloadBlob,
   Task,
+  ExportFormat,
 } from './tasks-service';
 
 // ─── Module state ─────────────────────────────────────────
 
 let initialized = false;
-
-// Draft state for the "new task" card
 let draftText = '';
-let draftDate = '';   // YYYY-MM-DD
-
-// Per-card editing state: taskId → { text, date }
+let draftDate = '';
 const editingDrafts = new Map<string, { text: string; date: string }>();
-
 let allTasks: Task[] = [];
 
 // ─── DOM helpers ──────────────────────────────────────────
@@ -63,7 +47,6 @@ function escapeHtml(s: string): string {
 
 function formatDueDate(iso: string): string {
   if (!iso) return '';
-  // iso is YYYY-MM-DD
   const [y, m, d] = iso.split('-');
   if (!y || !m || !d) return iso;
   const monthNames = [
@@ -85,9 +68,7 @@ function toast(message: string, isError = false): void {
     'text-sm font-medium px-5 py-3 rounded-full shadow-2xl',
     'flex items-center gap-2',
     'opacity-0 translate-y-4 transition-all duration-300',
-    isError
-      ? 'bg-red-600 text-white'
-      : 'bg-gray-900 text-white',
+    isError ? 'bg-red-600 text-white' : 'bg-gray-900 text-white',
   ].join(' ');
   el.innerHTML = isError
     ? `<span>${escapeHtml(message)}</span>`
@@ -107,25 +88,21 @@ function toast(message: string, isError = false): void {
 
 // ─── Public API ───────────────────────────────────────────
 
-/**
- * Idempotent initializer. Safe to call many times.
- */
 export function initTasks(): void {
   if (initialized) return;
 
   const root = document.getElementById('tasks-view');
   if (!root) {
-    // View not present in this build — silently skip.
     return;
   }
 
   initialized = true;
 
-  // Seed the draft date to today.
   if (!draftDate) draftDate = todayISO();
 
   wireNewTaskForm();
   wireTasksContainer();
+  wireExportButton();
 
   const refreshBtn = document.getElementById('tasks-refresh-btn') as HTMLButtonElement | null;
   if (refreshBtn && !(refreshBtn as any)._wired) {
@@ -135,20 +112,15 @@ export function initTasks(): void {
     });
   }
 
-  // Initial load of saved tasks.
   void loadSavedTasks();
 }
 
-/**
- * Called from main.ts when the "Tasks" sidebar entry is clicked.
- * Refreshes the list, but is safe to call even if init has not run yet.
- */
 export function renderTasksCategory(): void {
   initTasks();
   void loadSavedTasks();
 }
 
-// ─── New-task form ────────────────────────────────────────
+// ─── New-task form (unchanged) ────────────────────────────
 
 function wireNewTaskForm(): void {
   const textarea = $<HTMLTextAreaElement>('tasks-new-text');
@@ -196,18 +168,13 @@ async function handleCreate(): Promise<void> {
 
   try {
     const { token } = getAuthState();
-    // ⬅️ CHANGED: capture the response so we can read `email_sent`.
     const res = await createTask(text, date, token || undefined);
 
-    // Reset the draft.
     draftText = '';
     draftDate = todayISO();
     textarea.value = '';
     dateInput.value = draftDate;
 
-    // ⬅️ NEW: choose the toast wording based on whether the confirmation
-    // email actually went out. The task is always saved either way; only
-    // the email is best-effort.
     if (res.email_sent) {
       toast('Task saved & email sent ✅');
     } else {
@@ -223,7 +190,7 @@ async function handleCreate(): Promise<void> {
   }
 }
 
-// ─── Saved-task list ──────────────────────────────────────
+// ─── Saved-task list (unchanged) ──────────────────────────
 
 function wireTasksContainer(): void {
   const container = $<HTMLDivElement>('tasks-saved-list');
@@ -231,41 +198,35 @@ function wireTasksContainer(): void {
   if ((container as any)._wired) return;
   (container as any)._wired = true;
 
-  // Event delegation — one listener for all card buttons.
   container.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
 
     const editBtn = target.closest<HTMLButtonElement>('[data-task-edit]');
     if (editBtn) {
-      const id = editBtn.dataset.taskEdit!;
-      startEditing(id);
+      startEditing(editBtn.dataset.taskEdit!);
       return;
     }
 
     const cancelBtn = target.closest<HTMLButtonElement>('[data-task-cancel]');
     if (cancelBtn) {
-      const id = cancelBtn.dataset.taskCancel!;
-      editingDrafts.delete(id);
+      editingDrafts.delete(cancelBtn.dataset.taskCancel!);
       renderSavedTasks();
       return;
     }
 
     const saveBtn = target.closest<HTMLButtonElement>('[data-task-save]');
     if (saveBtn) {
-      const id = saveBtn.dataset.taskSave!;
-      void commitEdit(id);
+      void commitEdit(saveBtn.dataset.taskSave!);
       return;
     }
 
     const deleteBtn = target.closest<HTMLButtonElement>('[data-task-delete]');
     if (deleteBtn) {
-      const id = deleteBtn.dataset.taskDelete!;
-      void handleDelete(id);
+      void handleDelete(deleteBtn.dataset.taskDelete!);
       return;
     }
   });
 
-  // Delegated input listeners for edit-mode textareas / date inputs.
   container.addEventListener('input', (e) => {
     const target = e.target as HTMLElement;
     if (target instanceof HTMLTextAreaElement && target.dataset.taskEditText) {
@@ -299,11 +260,11 @@ async function loadSavedTasks(): Promise<void> {
     allTasks = res.tasks || [];
     renderSavedTasks();
     loadingEl?.classList.add('hidden');
+    updateExportButtonState();
   } catch (err) {
     loadingEl?.classList.add('hidden');
     listEl.innerHTML = '';
     if (emptyEl) emptyEl.classList.remove('hidden');
-    // Surface the error but don't spam the toast on every refresh.
     console.error('[tasks] failed to load:', err);
   }
 }
@@ -318,6 +279,7 @@ function renderSavedTasks(): void {
     emptyEl?.classList.remove('hidden');
     const countEl = document.getElementById('tasks-count-label');
     if (countEl) countEl.textContent = '0 tasks';
+    updateExportButtonState();
     return;
   }
   emptyEl?.classList.add('hidden');
@@ -333,6 +295,8 @@ function renderSavedTasks(): void {
       return isEditing ? renderEditCard(task) : renderViewCard(task);
     })
     .join('');
+
+  updateExportButtonState();
 }
 
 function renderViewCard(task: Task): string {
@@ -451,6 +415,72 @@ async function handleDelete(id: string): Promise<void> {
   }
 }
 
-// Keep `draftDate` initialised on first import, in case main.ts
-// imports this module before initTasks() runs.
+// ─── Export feature ───────────────────────────────────────
+
+function wireExportButton(): void {
+  const btn = $<HTMLButtonElement>('tasks-export-btn');
+  const menu = $<HTMLDivElement>('tasks-export-menu');
+  const csvBtn = $<HTMLButtonElement>('tasks-export-csv');
+  const jsonBtn = $<HTMLButtonElement>('tasks-export-json');
+
+  if (!btn || !menu || !csvBtn || !jsonBtn) return;
+  if ((btn as any)._wired) return;
+  (btn as any)._wired = true;
+
+  // Toggle the format menu.
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.classList.toggle('hidden');
+  });
+
+  // Close the menu when clicking anywhere else.
+  document.addEventListener('click', (e) => {
+    if (!menu.contains(e.target as Node) && e.target !== btn) {
+      menu.classList.add('hidden');
+    }
+  });
+
+  csvBtn.addEventListener('click', () => {
+    menu.classList.add('hidden');
+    void handleExport('csv');
+  });
+  jsonBtn.addEventListener('click', () => {
+    menu.classList.add('hidden');
+    void handleExport('json');
+  });
+
+  // Initial disabled state (nothing loaded yet).
+  updateExportButtonState();
+}
+
+function updateExportButtonState(): void {
+  const btn = $<HTMLButtonElement>('tasks-export-btn');
+  if (!btn) return;
+
+  const hasTasks = allTasks.length > 0;
+  btn.disabled = !hasTasks;
+  btn.classList.toggle('opacity-50', !hasTasks);
+  btn.classList.toggle('cursor-not-allowed', !hasTasks);
+}
+
+function handleExport(format: ExportFormat): void {
+  if (allTasks.length === 0) {
+    toast('No tasks to export yet.', true);
+    return;
+  }
+
+  try {
+    const blob = exportTasks(allTasks, format);
+    const stamp = todayISO();
+    const filename = `my-tasks-${stamp}.${format}`;
+    downloadBlob(blob, filename);
+
+    toast(`Exported ${allTasks.length} task${allTasks.length === 1 ? '' : 's'} as ${format.toUpperCase()} ✅`);
+  } catch (err) {
+    toast(`Export failed: ${(err as Error).message}`, true);
+  }
+}
+
+// ─── Boot-time draft init ─────────────────────────────────
+
 if (!draftDate) draftDate = todayISO();

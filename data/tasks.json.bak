@@ -1,0 +1,39 @@
+{
+  "tasks": [
+    {
+      "id": "tsk_a123377715d1e970",
+      "text": "today is going summa",
+      "due_date": "2026-10-22",
+      "created_at": "2026-10-22T09:37:30.808951868Z",
+      "updated_at": "2026-10-22T09:37:30.808951868Z"
+    },
+    {
+      "id": "tsk_eea077a50461224e",
+      "text": "SMTP proof-of-life test",
+      "due_date": "2026-11-05",
+      "created_at": "2026-10-22T12:27:37.538947297Z",
+      "updated_at": "2026-10-22T12:27:37.538947297Z"
+    },
+    {
+      "id": "tsk_fa9a6b8187426af0",
+      "text": "SMTP diagnostic test from Ramesh",
+      "due_date": "2026-11-05",
+      "created_at": "2026-10-22T13:00:18.113857645Z",
+      "updated_at": "2026-10-22T13:00:18.113857645Z"
+    },
+    {
+      "id": "tsk_dadf24d60db4e196",
+      "text": "to check the task bar is working are not??",
+      "due_date": "2026-10-22",
+      "created_at": "2026-10-22T13:12:42.249347539Z",
+      "updated_at": "2026-10-22T13:12:42.249347539Z"
+    },
+    {
+      "id": "tsk_2b198ae1a2801ff4",
+      "text": "hello ii am new to the rutils.",
+      "due_date": "2026-10-23",
+      "created_at": "2026-10-23T07:06:24.666453898Z",
+      "updated_at": "2026-10-23T07:06:24.666453898Z"
+    }
+  ]
+}

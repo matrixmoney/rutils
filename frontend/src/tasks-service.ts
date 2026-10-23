@@ -1,5 +1,5 @@
 // ============================================================
-// TASKS-SERVICE.TS — API client for the /tasks endpoints
+// TASKS-SERVICE.TS — API client + export helpers for /tasks
 // ============================================================
 
 import { apiGet } from './auth';
@@ -8,6 +8,12 @@ import { apiGet } from './auth';
 
 export interface Task {
   id: string;
+  /**
+   * Owner of the task. Populated server-side from the JWT; never
+   * sent in a request body. Included here so the client-side
+   * export can (optionally) surface it in the CSV.
+   */
+  user_id: string;
   text: string;
   due_date: string;   // YYYY-MM-DD
   created_at: string; // RFC3339
@@ -22,7 +28,7 @@ export interface TasksListResponse {
 export interface TaskResponse {
   success: boolean;
   task: Task;
-  email_sent: boolean;   // ⬅️ NEW
+  email_sent: boolean;
 }
 
 export interface TaskMessageResponse {
@@ -58,12 +64,12 @@ async function unwrap<T>(res: Response): Promise<T> {
 
 // ─── API calls ─────────────────────────────────────────────
 
-/** GET /tasks — every saved task, newest first. */
+/** GET /tasks — every task owned by the caller, newest first. */
 export async function fetchTasks(token?: string): Promise<TasksListResponse> {
   return apiGet<TasksListResponse>('/tasks', token);
 }
 
-/** POST /tasks — creates a new task. */
+/** POST /tasks — creates a new task owned by the caller. */
 export async function createTask(
   text: string,
   dueDate: string,
@@ -77,7 +83,7 @@ export async function createTask(
   return unwrap<TaskResponse>(res);
 }
 
-/** PUT /tasks/{id} — updates an existing task. */
+/** PUT /tasks/{id} — updates an existing task owned by the caller. */
 export async function updateTask(
   id: string,
   text: string,
@@ -92,7 +98,7 @@ export async function updateTask(
   return unwrap<TaskResponse>(res);
 }
 
-/** DELETE /tasks/{id} — removes a task. */
+/** DELETE /tasks/{id} — removes a task owned by the caller. */
 export async function deleteTask(
   id: string,
   token?: string,
@@ -102,4 +108,89 @@ export async function deleteTask(
     headers: authHeaders(token),
   });
   return unwrap<TaskMessageResponse>(res);
+}
+
+// ─── Export helpers (client-side only) ────────────────────
+
+export type ExportFormat = 'csv' | 'json';
+
+/**
+ * Serialise the given tasks to a downloadable Blob in the requested
+ * format. The caller (tasks-ui.ts) passes `allTasks`, which is
+ * already user-scoped by the backend — so the export is automatically
+ * user-scoped for free.
+ *
+ * CSV rules:
+ *  - header row: id,text,due_date,created_at,updated_at
+ *  - cells are RFC 4180 quoted (double quotes escaped as "")
+ *  - a leading ' = + - @ in any cell is prefixed with ' to prevent
+ *    spreadsheet formula injection (OWASP recommendation)
+ *  - line endings are \r\n (RFC 4180 compliance)
+ *
+ * JSON rules:
+ *  - a plain array of the task objects as returned by the API
+ *  - pretty-printed with 2-space indentation
+ */
+export function exportTasks(tasks: Task[], format: ExportFormat): Blob {
+  if (format === 'json') {
+    const payload = JSON.stringify(tasks, null, 2);
+    return new Blob([payload], { type: 'application/json;charset=utf-8' });
+  }
+
+  const headers = ['id', 'text', 'due_date', 'created_at', 'updated_at'];
+  const rows: string[] = [headers.map(csvEscape).join(',')];
+
+  for (const t of tasks) {
+    rows.push(
+      [
+        t.id,
+        t.text,
+        t.due_date,
+        t.created_at,
+        t.updated_at,
+      ]
+        .map(csvEscape)
+        .join(','),
+    );
+  }
+
+  // \r\n is what Excel and Google Sheets expect for CSV.
+  const body = rows.join('\r\n') + '\r\n';
+  return new Blob([body], { type: 'text/csv;charset=utf-8' });
+}
+
+/**
+ * RFC 4180-compliant CSV escaping + spreadsheet formula-injection
+ * mitigation. A cell is wrapped in double quotes and any internal
+ * double quote is doubled. Cells whose first non-whitespace
+ * character is one of = + - @ are prefixed with a single quote so
+ * that Excel/Sheets treat them as text, not formulas.
+ */
+function csvEscape(value: string): string {
+  let v = value ?? '';
+
+  // Formula-injection guard: only matters for the very first
+  // character. Prefix with ' if it is one of the risky openers.
+  if (/^[=+\-@]/.test(v)) {
+    v = "'" + v;
+  }
+
+  // Always wrap in quotes for maximum compatibility.
+  return '"' + v.replace(/"/g, '""') + '"';
+}
+
+/**
+ * Trigger a browser download of `blob` with the given filename.
+ * Kept here so callers don't need to duplicate the anchor dance.
+ */
+export function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.style.display = 'none';
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
 }

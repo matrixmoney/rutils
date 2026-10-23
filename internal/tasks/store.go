@@ -13,23 +13,15 @@ import (
 	"time"
 )
 
-// Sentinel errors returned by the store.
 var (
 	ErrTaskNotFound = errors.New("task not found")
 )
 
-// Store manages persistence of Task records in a JSON file.
-//
-// Concurrency-safe: read operations take RLock, write operations take
-// Lock. Writes are atomic (write-to-temp + rename), mirroring the pattern
-// already used by auth.Store and nifty.FileStorage.
 type Store struct {
 	filePath string
 	mu       sync.RWMutex
 }
 
-// NewStore initializes a JSON file store at the specified path.
-// If the file does not exist, an empty task list is written.
 func NewStore(filePath string) (*Store, error) {
 	if filePath == "" {
 		filePath = "data/tasks.json"
@@ -51,10 +43,8 @@ func NewStore(filePath string) (*Store, error) {
 	return s, nil
 }
 
-// FilePath returns the resolved path of the backing JSON file.
 func (s *Store) FilePath() string { return s.filePath }
 
-// loadUnlocked reads the task list from disk (caller must hold a lock).
 func (s *Store) loadUnlocked() (TaskList, error) {
 	data, err := os.ReadFile(s.filePath)
 	if err != nil {
@@ -77,8 +67,6 @@ func (s *Store) loadUnlocked() (TaskList, error) {
 	return list, nil
 }
 
-// saveUnlocked atomically writes the task list to disk
-// (caller must hold a write lock).
 func (s *Store) saveUnlocked(list TaskList) error {
 	if list.Tasks == nil {
 		list.Tasks = []Task{}
@@ -117,15 +105,14 @@ func (s *Store) saveUnlocked(list TaskList) error {
 	return nil
 }
 
-// generateID creates a random hex string ID with the "tsk_" prefix.
 func generateID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return "tsk_" + hex.EncodeToString(b)
 }
 
-// List returns every task, newest first (by CreatedAt).
-func (s *Store) List() ([]Task, error) {
+// ListByUser returns only the tasks owned by userID, newest first.
+func (s *Store) ListByUser(userID string) ([]Task, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -134,19 +121,43 @@ func (s *Store) List() ([]Task, error) {
 		return nil, err
 	}
 
-	// Return a copy so callers can't mutate our internal state.
-	out := make([]Task, len(list.Tasks))
-	copy(out, list.Tasks)
-
-	// Newest first — matches the "phone notes" convention.
-	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
-		out[i], out[j] = out[j], out[i]
+	filtered := make([]Task, 0)
+	for _, t := range list.Tasks {
+		if t.UserID == userID && userID != "" {
+			filtered = append(filtered, t)
+		}
 	}
-	return out, nil
+
+	for i, j := 0, len(filtered)-1; i < j; i, j = i+1, j-1 {
+		filtered[i], filtered[j] = filtered[j], filtered[i]
+	}
+	return filtered, nil
 }
 
-// Create inserts a new task and returns it with generated ID + timestamps.
-func (s *Store) Create(text, dueDate string) (*Task, error) {
+// CountOrphans returns the number of stored tasks with no owner.
+func (s *Store) CountOrphans() (int, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	list, err := s.loadUnlocked()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, t := range list.Tasks {
+		if strings.TrimSpace(t.UserID) == "" {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// Create inserts a new task owned by userID.
+func (s *Store) Create(userID, text, dueDate string) (*Task, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errors.New("cannot create task without an owner")
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -158,6 +169,7 @@ func (s *Store) Create(text, dueDate string) (*Task, error) {
 	now := time.Now().UTC()
 	task := Task{
 		ID:        generateID(),
+		UserID:    userID,
 		Text:      text,
 		DueDate:   dueDate,
 		CreatedAt: now,
@@ -171,8 +183,12 @@ func (s *Store) Create(text, dueDate string) (*Task, error) {
 	return &task, nil
 }
 
-// Update mutates an existing task identified by ID and returns the updated copy.
-func (s *Store) Update(id, text, dueDate string) (*Task, error) {
+// Update mutates an existing task, but ONLY if it is owned by userID.
+func (s *Store) Update(userID, id, text, dueDate string) (*Task, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errors.New("cannot update task without an owner")
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -182,7 +198,7 @@ func (s *Store) Update(id, text, dueDate string) (*Task, error) {
 	}
 
 	for i := range list.Tasks {
-		if list.Tasks[i].ID == id {
+		if list.Tasks[i].ID == id && list.Tasks[i].UserID == userID {
 			list.Tasks[i].Text = text
 			list.Tasks[i].DueDate = dueDate
 			list.Tasks[i].UpdatedAt = time.Now().UTC()
@@ -198,8 +214,12 @@ func (s *Store) Update(id, text, dueDate string) (*Task, error) {
 	return nil, ErrTaskNotFound
 }
 
-// Delete removes a task identified by ID.
-func (s *Store) Delete(id string) error {
+// Delete removes a task, but ONLY if it is owned by userID.
+func (s *Store) Delete(userID, id string) error {
+	if strings.TrimSpace(userID) == "" {
+		return errors.New("cannot delete task without an owner")
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -209,7 +229,7 @@ func (s *Store) Delete(id string) error {
 	}
 
 	for i := range list.Tasks {
-		if list.Tasks[i].ID == id {
+		if list.Tasks[i].ID == id && list.Tasks[i].UserID == userID {
 			list.Tasks = append(list.Tasks[:i], list.Tasks[i+1:]...)
 			return s.saveUnlocked(list)
 		}
