@@ -120,14 +120,15 @@ export function renderTasksCategory(): void {
   void loadSavedTasks();
 }
 
-// ─── New-task form (unchanged) ────────────────────────────
+// ─── New-task form (two buttons: Add / Email) ─────────────
 
 function wireNewTaskForm(): void {
   const textarea = $<HTMLTextAreaElement>('tasks-new-text');
   const dateInput = $<HTMLInputElement>('tasks-new-date');
-  const sendBtn = $<HTMLButtonElement>('tasks-new-send');
+  const addBtn = $<HTMLButtonElement>('tasks-new-add');
+  const emailBtn = $<HTMLButtonElement>('tasks-new-email');
 
-  if (!textarea || !dateInput || !sendBtn) return;
+  if (!textarea || !dateInput || !addBtn || !emailBtn) return;
   if ((textarea as any)._wired) return;
   (textarea as any)._wired = true;
 
@@ -141,17 +142,24 @@ function wireNewTaskForm(): void {
     draftDate = dateInput.value || todayISO();
   });
 
-  sendBtn.addEventListener('click', () => {
-    void handleCreate();
+  // "Add" — silent save, no email.
+  addBtn.addEventListener('click', () => {
+    void handleCreate(false);
+  });
+
+  // "Email" — save + dispatch confirmation email.
+  emailBtn.addEventListener('click', () => {
+    void handleCreate(true);
   });
 }
 
-async function handleCreate(): Promise<void> {
+async function handleCreate(sendEmail: boolean): Promise<void> {
   const textarea = $<HTMLTextAreaElement>('tasks-new-text');
   const dateInput = $<HTMLInputElement>('tasks-new-date');
-  const sendBtn = $<HTMLButtonElement>('tasks-new-send');
+  const addBtn = $<HTMLButtonElement>('tasks-new-add');
+  const emailBtn = $<HTMLButtonElement>('tasks-new-email');
 
-  if (!textarea || !dateInput || !sendBtn) return;
+  if (!textarea || !dateInput || !addBtn || !emailBtn) return;
 
   const text = textarea.value.trim();
   const date = dateInput.value || todayISO();
@@ -162,20 +170,34 @@ async function handleCreate(): Promise<void> {
     return;
   }
 
-  sendBtn.disabled = true;
-  const originalLabel = sendBtn.textContent || 'SEND';
-  sendBtn.textContent = 'Sending…';
+  // Disable both buttons so a double-click can't fire two creates.
+  addBtn.disabled = true;
+  emailBtn.disabled = true;
+
+  const originalAddLabel = addBtn.innerHTML;
+  const originalEmailLabel = emailBtn.innerHTML;
+
+  if (sendEmail) {
+    emailBtn.innerHTML = 'Sending…';
+  } else {
+    addBtn.innerHTML = 'Saving…';
+  }
 
   try {
     const { token } = getAuthState();
-    const res = await createTask(text, date, token || undefined);
+    const res = await createTask(text, date, token || undefined, sendEmail);
 
+    // Reset the form.
     draftText = '';
     draftDate = todayISO();
     textarea.value = '';
     dateInput.value = draftDate;
 
-    if (res.email_sent) {
+    // Pick the toast based on whether an email was requested AND
+    // whether it actually went out.
+    if (!sendEmail) {
+      toast('Task saved ✅');
+    } else if (res.email_sent) {
       toast('Task saved & email sent ✅');
     } else {
       toast('Task saved (email could not be sent)', true);
@@ -185,12 +207,14 @@ async function handleCreate(): Promise<void> {
   } catch (err) {
     toast(`Save failed: ${(err as Error).message}`, true);
   } finally {
-    sendBtn.disabled = false;
-    sendBtn.textContent = originalLabel;
+    addBtn.disabled = false;
+    emailBtn.disabled = false;
+    addBtn.innerHTML = originalAddLabel;
+    emailBtn.innerHTML = originalEmailLabel;
   }
 }
 
-// ─── Saved-task list (unchanged) ──────────────────────────
+// ─── Saved-task list ──────────────────────────────────────
 
 function wireTasksContainer(): void {
   const container = $<HTMLDivElement>('tasks-saved-list');
@@ -214,9 +238,17 @@ function wireTasksContainer(): void {
       return;
     }
 
+    // "Update" — silent save.
     const saveBtn = target.closest<HTMLButtonElement>('[data-task-save]');
     if (saveBtn) {
-      void commitEdit(saveBtn.dataset.taskSave!);
+      void commitEdit(saveBtn.dataset.taskSave!, 'silent');
+      return;
+    }
+
+    // "Email" — save + dispatch update email.
+    const emailBtn = target.closest<HTMLButtonElement>('[data-task-email]');
+    if (emailBtn) {
+      void commitEdit(emailBtn.dataset.taskEmail!, 'email');
       return;
     }
 
@@ -338,6 +370,8 @@ function renderViewCard(task: Task): string {
   `;
 }
 
+// ─── Edit card (three buttons: Cancel / Update / Email) ───
+
 function renderEditCard(task: Task): string {
   const draft = editingDrafts.get(task.id) ?? { text: task.text, date: task.due_date };
   return `
@@ -358,14 +392,20 @@ function renderEditCard(task: Task): string {
             class="bg-white border border-gray-300 rounded-lg py-1.5 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
           />
         </label>
-        <div class="flex gap-2 ml-auto">
+
+        <!-- ── Three actions: cancel, silent save, save + email ── -->
+        <div class="flex flex-col sm:flex-row gap-2 sm:ml-auto w-full sm:w-auto">
           <button type="button" data-task-cancel="${escapeHtml(task.id)}"
-            class="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors">
+            class="w-full sm:w-auto px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors">
             Cancel
           </button>
           <button type="button" data-task-save="${escapeHtml(task.id)}"
-            class="task-send-btn px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition-colors">
-            SEND
+            class="w-full sm:w-auto px-3 py-1.5 rounded-lg text-xs font-semibold text-amber-700 bg-white border border-amber-300 hover:bg-amber-50 transition-colors">
+            Update
+          </button>
+          <button type="button" data-task-email="${escapeHtml(task.id)}"
+            class="w-full sm:w-auto px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 transition-colors">
+            Email
           </button>
         </div>
       </div>
@@ -380,7 +420,14 @@ function startEditing(id: string): void {
   renderSavedTasks();
 }
 
-async function commitEdit(id: string): Promise<void> {
+/**
+ * Save the edit for a task.
+ *
+ * @param id   The task ID to commit.
+ * @param mode 'silent' → save only (Update button).
+ *             'email'  → save + dispatch update email (Email button).
+ */
+async function commitEdit(id: string, mode: 'silent' | 'email'): Promise<void> {
   const draft = editingDrafts.get(id);
   if (!draft) return;
 
@@ -392,11 +439,21 @@ async function commitEdit(id: string): Promise<void> {
     return;
   }
 
+  const sendEmail = mode === 'email';
+
   try {
     const { token } = getAuthState();
-    await updateTask(id, text, date, token || undefined);
+    const res = await updateTask(id, text, date, token || undefined, sendEmail);
     editingDrafts.delete(id);
-    toast('Task updated ✅');
+
+    if (!sendEmail) {
+      toast('Task updated ✅');
+    } else if (res.email_sent) {
+      toast('Task updated & email sent ✅');
+    } else {
+      toast('Task updated (email could not be sent)', true);
+    }
+
     await loadSavedTasks();
   } catch (err) {
     toast(`Update failed: ${(err as Error).message}`, true);
@@ -407,8 +464,24 @@ async function handleDelete(id: string): Promise<void> {
   if (!confirm('Delete this task?')) return;
   try {
     const { token } = getAuthState();
-    await deleteTask(id, token || undefined);
-    toast('Task deleted');
+
+    // The delete flow always requests the notification email — there
+    // is no "silent delete" button in the current UI. The server also
+    // defaults to sending when the flag is omitted, but we pass it
+    // explicitly so the behaviour is independent of any server-side
+    // defaulting change.
+    const res = await deleteTask(id, token || undefined, true);
+
+    if (res.email_sent === true) {
+      toast('Task deleted & email sent ✅');
+    } else if (res.email_sent === false) {
+      toast('Task deleted (email could not be sent)', true);
+    } else {
+      // Older server that doesn't return email_sent — treat as success
+      // with no confirmation about email.
+      toast('Task deleted');
+    }
+
     await loadSavedTasks();
   } catch (err) {
     toast(`Delete failed: ${(err as Error).message}`, true);

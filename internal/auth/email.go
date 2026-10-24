@@ -719,7 +719,525 @@ The Rutils Team
 
 	return e.sendMail(toEmail, subject, textBody, htmlBody)
 }
+// ⬅️ NEW: SendTaskUpdatedNotification sends a confirmation email to the
+// authenticated user whenever they edit an existing task via
+// PUT /tasks/{id} with send_email=true.
+//
+// Arguments:
+//   - toEmail:    the logged-in user's email (from the JWT claims)
+//   - userName:   the logged-in user's name (from the JWT claims; may be empty)
+//   - oldText:    the task text BEFORE the edit
+//   - oldDueDate: the due date BEFORE the edit (YYYY-MM-DD)
+//   - newText:    the task text AFTER the edit
+//   - newDueDate: the due date AFTER the edit (YYYY-MM-DD)
+//
+// The old values are captured server-side (from the store) before the
+// update is applied, so the email always reflects the true before/after
+// diff — a malicious client cannot forge the "old" side.
+//
+// When SMTP is not configured, this method logs a single development-
+// fallback line to stdout, matching the pattern used by the other
+// Send*Notification methods.
+func (e *EmailSender) SendTaskUpdatedNotification(
+	toEmail, userName,
+	oldText, oldDueDate,
+	newText, newDueDate string,
+) error {
+	if !e.IsConfigured() {
+		log.Printf("[AUTH-DEV] SMTP not configured in config.json. Task update notification for <%s> simulated: old_text=%q old_due=%q new_text=%q new_due=%q",
+			toEmail, oldText, oldDueDate, newText, newDueDate)
+		return nil
+	}
 
+	greeting := "Hello,"
+	if strings.TrimSpace(userName) != "" {
+		greeting = fmt.Sprintf("Hello %s,", userName)
+	}
+
+	// Subject uses the NEW text (that's what the task now is).
+	subjectSnippet := newText
+	if len(subjectSnippet) > 60 {
+		subjectSnippet = subjectSnippet[:57] + "..."
+	}
+	subjectSnippet = strings.ReplaceAll(subjectSnippet, "\n", " ")
+	subjectSnippet = strings.ReplaceAll(subjectSnippet, "\r", " ")
+	subject := fmt.Sprintf("✏️ Task Updated: %s", subjectSnippet)
+
+	textBody := fmt.Sprintf(
+`%s
+
+Your task has been updated in Rutils.
+
+--------------------------------------------------
+PREVIOUS TASK:
+  %s
+
+PREVIOUS DUE DATE:
+  %s
+--------------------------------------------------
+NEW TASK:
+  %s
+
+NEW DUE DATE:
+  %s
+--------------------------------------------------
+
+If you did not make this change, please review your account immediately.
+
+Warm regards,
+The Rutils Team
+`, greeting, oldText, oldDueDate, newText, newDueDate)
+
+	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Updated</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #334155;
+      -webkit-font-smoothing: antialiased;
+    }
+    table { border-collapse: collapse; }
+    .wrapper {
+      width: 100%%;
+      background-color: #f1f5f9;
+      padding: 40px 12px;
+    }
+    .card {
+      max-width: 580px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+      border: 1px solid #e2e8f0;
+    }
+    .banner {
+      background: linear-gradient(135deg, #0d9488 0%%, #0ea5e9 100%%);
+      padding: 32px 30px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .brand-sub {
+      font-size: 13px;
+      opacity: 0.92;
+      margin-top: 6px;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+    .body-content {
+      padding: 32px 32px 24px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #475569;
+      margin: 0 0 16px 0;
+    }
+    .diff-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin: 20px 0;
+    }
+    .diff-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .diff-label-old { color: #dc2626; }
+    .diff-label-new { color: #0d9488; }
+    .diff-old-value {
+      font-size: 15px;
+      color: #94a3b8;
+      text-decoration: line-through;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0 0 8px 0;
+    }
+    .diff-old-due {
+      font-size: 13px;
+      color: #94a3b8;
+      text-decoration: line-through;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+      margin: 0 0 16px 0;
+    }
+    .diff-divider {
+      border: 0;
+      border-top: 1px dashed #cbd5e1;
+      margin: 16px 0;
+    }
+    .diff-new-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #0f172a;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0 0 10px 0;
+    }
+    .diff-new-due {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0d9488;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    }
+    .notice-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.5;
+      margin-top: 24px;
+    }
+    .signoff {
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 14px;
+      color: #475569;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 22px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <table role="presentation" class="wrapper">
+    <tr>
+      <td align="center">
+        <div class="card">
+          <div class="banner">
+            <h1 class="brand-title">Rutils Tasks</h1>
+            <div class="brand-sub">Your Task Was Updated</div>
+          </div>
+          <div class="body-content" align="left">
+            <div class="greeting">%s</div>
+            <p>One of your tasks in Rutils has been updated.</p>
+
+            <div class="diff-card">
+              <span class="diff-label diff-label-old">📝 Previous</span>
+              <div class="diff-old-value">%s</div>
+              <div class="diff-old-due">🗓 %s</div>
+
+              <hr class="diff-divider">
+
+              <span class="diff-label diff-label-new">✅ Updated</span>
+              <div class="diff-new-value">%s</div>
+              <div class="diff-new-due">🗓 %s</div>
+            </div>
+
+            <div class="notice-box">
+              <strong>Didn't make this change?</strong>
+              If you did not update this task, please review your account activity and consider changing your password.
+            </div>
+
+            <div class="signoff">
+              Warm regards,<br>
+              <strong style="color: #1e293b;">The Rutils Team</strong>
+            </div>
+          </div>
+          <div class="footer">
+            This is an automated notification from Rutils.<br>
+            Please do not reply directly to this email.<br>
+            &copy; 2026 Rutils. All rights reserved.
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+		html.EscapeString(greeting),
+		html.EscapeString(oldText),
+		html.EscapeString(oldDueDate),
+		html.EscapeString(newText),
+		html.EscapeString(newDueDate),
+	)
+
+	return e.sendMail(toEmail, subject, textBody, htmlBody)
+}
+// ⬅️ NEW: SendTaskDeletedNotification sends a confirmation email to the
+// authenticated user whenever they delete a task via DELETE /tasks/{id}
+// with send_email=true (the default).
+//
+// Arguments:
+//   - toEmail:  the logged-in user's email (from the JWT claims)
+//   - userName: the logged-in user's name (from the JWT claims; may be empty)
+//   - taskText: the text of the task that was just deleted
+//   - dueDate:  the due date the task had (YYYY-MM-DD)
+//
+// The task record is captured server-side BEFORE it is removed from
+// disk (see Store.Delete returning the snapshot), so the email always
+// reflects the true deleted task.
+//
+// When SMTP is not configured, this method logs a single development-
+// fallback line to stdout, matching the pattern used by the other
+// Send*Notification methods.
+func (e *EmailSender) SendTaskDeletedNotification(toEmail, userName, taskText, dueDate string) error {
+	if !e.IsConfigured() {
+		log.Printf("[AUTH-DEV] SMTP not configured in config.json. Task delete notification for <%s> simulated: text=%q due=%q",
+			toEmail, taskText, dueDate)
+		return nil
+	}
+
+	greeting := "Hello,"
+	if strings.TrimSpace(userName) != "" {
+		greeting = fmt.Sprintf("Hello %s,", userName)
+	}
+
+	// Subject uses the deleted text so the user can spot it at a glance
+	// in their inbox.
+	subjectSnippet := taskText
+	if len(subjectSnippet) > 60 {
+		subjectSnippet = subjectSnippet[:57] + "..."
+	}
+	subjectSnippet = strings.ReplaceAll(subjectSnippet, "\n", " ")
+	subjectSnippet = strings.ReplaceAll(subjectSnippet, "\r", " ")
+	subject := fmt.Sprintf("🗑️ Task Deleted: %s", subjectSnippet)
+
+	textBody := fmt.Sprintf(
+`%s
+
+Your task has been deleted from Rutils.
+
+--------------------------------------------------
+DELETED TASK:
+  %s
+
+DUE DATE:
+  %s
+--------------------------------------------------
+
+This action is permanent. The task and all of its details have been removed from your account.
+
+If you did not delete this task, please contact support immediately to secure your account.
+
+Warm regards,
+The Rutils Team
+`, greeting, taskText, dueDate)
+
+	htmlBody := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task Deleted</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #334155;
+      -webkit-font-smoothing: antialiased;
+    }
+    table { border-collapse: collapse; }
+    .wrapper {
+      width: 100%%;
+      background-color: #f1f5f9;
+      padding: 40px 12px;
+    }
+    .card {
+      max-width: 580px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+      border: 1px solid #e2e8f0;
+    }
+    .banner {
+      background: linear-gradient(135deg, #dc2626 0%%, #b91c1c 100%%);
+      padding: 32px 30px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .brand-sub {
+      font-size: 13px;
+      opacity: 0.92;
+      margin-top: 6px;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+    .body-content {
+      padding: 32px 32px 24px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #475569;
+      margin: 0 0 16px 0;
+    }
+    .task-card {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin: 20px 0;
+    }
+    .task-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: #b91c1c;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .task-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: #7f1d1d;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      text-decoration: line-through;
+      margin: 0 0 16px 0;
+    }
+    .task-divider {
+      border: 0;
+      border-top: 1px solid #fecaca;
+      margin: 16px 0;
+    }
+    .due-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: #b91c1c;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .due-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #7f1d1d;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+      text-decoration: line-through;
+    }
+    .notice-box {
+      background-color: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #7f1d1d;
+      line-height: 1.5;
+      margin-top: 24px;
+    }
+    .signoff {
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 14px;
+      color: #475569;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 22px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <table role="presentation" class="wrapper">
+    <tr>
+      <td align="center">
+        <div class="card">
+          <div class="banner">
+            <h1 class="brand-title">Rutils Tasks</h1>
+            <div class="brand-sub">Your Task Was Deleted</div>
+          </div>
+          <div class="body-content" align="left">
+            <div class="greeting">%s</div>
+            <p>This email confirms that one of your tasks in Rutils has been permanently deleted.</p>
+
+            <div class="task-card">
+              <span class="task-label">🗑️ Deleted Task</span>
+              <div class="task-text">%s</div>
+              <hr class="task-divider">
+              <span class="due-label">🗓 Due Date</span>
+              <div class="due-value">%s</div>
+            </div>
+
+            <div class="notice-box">
+              <strong>Didn't delete this task?</strong>
+              If you did not delete this task, please contact support immediately to secure your account.
+            </div>
+
+            <div class="signoff">
+              Warm regards,<br>
+              <strong style="color: #1e293b;">The Rutils Team</strong>
+            </div>
+          </div>
+          <div class="footer">
+            This is an automated notification from Rutils.<br>
+            Please do not reply directly to this email.<br>
+            &copy; 2026 Rutils. All rights reserved.
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+		html.EscapeString(greeting),
+		html.EscapeString(taskText),
+		html.EscapeString(dueDate),
+	)
+
+	return e.sendMail(toEmail, subject, textBody, htmlBody)
+}
 // buildMultipartMessage creates a MIME multipart/alternative message (plain text + HTML)
 func buildMultipartMessage(fromEmail, fromName, toEmail, subject, textBody, htmlBody string) []byte {
 	boundary := fmt.Sprintf("bnd_%d_%d", time.Now().UnixNano(), rand.Int63())

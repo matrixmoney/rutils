@@ -23,6 +23,11 @@ const maxTextLength = 2000
 // service never assumes identity — it is the handler's job to extract
 // it from the JWT. This keeps the service trivially testable and makes
 // the ownership boundary explicit at every call site.
+//
+// The service deliberately knows nothing about email. Persistence and
+// validation live here; notification is the handler's job (it has the
+// authenticated user's email + name from the JWT claims, and it owns
+// the goroutine-timeout wrapper that guards the SMTP call).
 type Service struct {
 	store *Store
 }
@@ -30,6 +35,24 @@ type Service struct {
 // NewService wires the store into the service.
 func NewService(store *Store) *Service {
 	return &Service{store: store}
+}
+
+// GetByID returns a single task owned by userID.
+//
+// Used by the API handler to capture the "before" state of a task
+// ahead of an Update or Delete, so the confirmation email can show
+// what actually changed (update) or what was removed (delete).
+//
+// Cross-user lookups return ErrTaskNotFound — same as a genuinely
+// missing task, so clients cannot enumerate other users' IDs.
+func (s *Service) GetByID(userID, id string) (*Task, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errors.New("user ID is required")
+	}
+	if strings.TrimSpace(id) == "" {
+		return nil, ErrTaskNotFound
+	}
+	return s.store.GetByID(userID, id)
 }
 
 // List returns all tasks owned by userID, newest first.
@@ -69,12 +92,18 @@ func (s *Service) Update(userID, id, text, dueDate string) (*Task, error) {
 }
 
 // Delete removes a task by ID, but only if it is owned by userID.
-func (s *Service) Delete(userID, id string) error {
+//
+// CHANGED: on success the function now returns the task as it looked
+// immediately BEFORE it was removed. The handler uses this snapshot
+// to populate the "Task Deleted" email — by the time the email is
+// dispatched, the row is already gone from disk, so this is the only
+// way to include its text and due date.
+func (s *Service) Delete(userID, id string) (*Task, error) {
 	if strings.TrimSpace(userID) == "" {
-		return errors.New("user ID is required")
+		return nil, errors.New("user ID is required")
 	}
 	if strings.TrimSpace(id) == "" {
-		return ErrTaskNotFound
+		return nil, ErrTaskNotFound
 	}
 	return s.store.Delete(userID, id)
 }

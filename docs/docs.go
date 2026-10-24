@@ -1271,7 +1271,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns every saved task, newest first. Requires Bearer JWT.",
+                "description": "Returns every task OWNED BY THE AUTHENTICATED USER, newest first. Requires Bearer JWT. Tasks belonging to other users are never returned.",
                 "produces": [
                     "application/json"
                 ],
@@ -1312,7 +1312,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new task with text and a due date (YYYY-MM-DD). Requires Bearer JWT. On success, a confirmation email is dispatched to the authenticated user's email address; EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome.",
+                "description": "Creates a new task owned by the authenticated user. The owner is derived from the JWT — the client cannot set it. On success, a confirmation email is dispatched to the user's email address when ` + "`" + `send_email` + "`" + ` is true (default when omitted). EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1378,7 +1378,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the text and due date of a task. Requires Bearer JWT. No email is dispatched on updates.",
+                "description": "Updates the text and due date of a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from \"not found\" — no information leak). Requires Bearer JWT. When ` + "`" + `send_email` + "`" + ` is true, an \"updated\" email is dispatched showing the before/after diff. ` + "`" + `email_sent` + "`" + ` reflects whether the dispatch succeeded. The task is saved regardless of email outcome.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1458,7 +1458,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Deletes the task identified by ID. Requires Bearer JWT.",
+                "description": "Deletes a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from \"not found\" — no information leak). Requires Bearer JWT. A \"deleted\" email is dispatched by default (pass ?send_email=false to suppress it). ` + "`" + `email_sent` + "`" + ` reflects whether the dispatch succeeded. The task is deleted regardless of email outcome.",
                 "produces": [
                     "application/json"
                 ],
@@ -1473,6 +1473,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Set to 'false' to suppress the deletion notification email (default: true)",
+                        "name": "send_email",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2728,6 +2734,9 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2026-11-05"
                 },
+                "send_email": {
+                    "type": "boolean"
+                },
                 "text": {
                     "type": "string",
                     "example": "Call the dentist"
@@ -2737,6 +2746,10 @@ const docTemplate = `{
         "tasks.MessageResponse": {
             "type": "object",
             "properties": {
+                "email_sent": {
+                    "type": "boolean",
+                    "example": true
+                },
                 "message": {
                     "type": "string",
                     "example": "Task deleted successfully"
@@ -2764,6 +2777,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "string"
                 }
             }
@@ -2805,6 +2821,9 @@ const docTemplate = `{
                 "due_date": {
                     "type": "string",
                     "example": "2026-11-12"
+                },
+                "send_email": {
+                    "type": "boolean"
                 },
                 "text": {
                     "type": "string",

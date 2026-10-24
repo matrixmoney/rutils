@@ -34,6 +34,13 @@ export interface TaskResponse {
 export interface TaskMessageResponse {
   success: boolean;
   message: string;
+  /**
+   * Whether the delete-notification email was dispatched.
+   * Present on DELETE /tasks/{id} responses since the send_email
+   * feature was added. Older servers may omit it — callers should
+   * treat `undefined` as `false`.
+   */
+  email_sent?: boolean;
 }
 
 // ─── API base resolution (mirrors auth.ts / formatters.ts) ─
@@ -69,44 +76,105 @@ export async function fetchTasks(token?: string): Promise<TasksListResponse> {
   return apiGet<TasksListResponse>('/tasks', token);
 }
 
-/** POST /tasks — creates a new task owned by the caller. */
+/**
+ * POST /tasks — creates a new task owned by the caller.
+ *
+ * @param sendEmail When true, the server dispatches a "Task Created"
+ *                  confirmation email. When false, the save is silent.
+ *
+ *                  Default: `true`. Matches the pre-flag frontend
+ *                  behaviour (the old single SEND button always
+ *                  emailed on create), and matches the server's
+ *                  `nil → email` default for POST /tasks.
+ *
+ *                  The "Add" button passes `false`.
+ *                  The "Email" button passes `true`.
+ */
 export async function createTask(
   text: string,
   dueDate: string,
   token?: string,
+  sendEmail: boolean = true,
 ): Promise<TaskResponse> {
   const res = await fetch(`${resolveBase()}/tasks`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ text, due_date: dueDate }),
+    body: JSON.stringify({
+      text,
+      due_date: dueDate,
+      send_email: sendEmail,
+    }),
   });
   return unwrap<TaskResponse>(res);
 }
 
-/** PUT /tasks/{id} — updates an existing task owned by the caller. */
+/**
+ * PUT /tasks/{id} — updates an existing task owned by the caller.
+ *
+ * @param sendEmail When true, the server dispatches a "Task Updated"
+ *                  email showing the before/after diff. When false,
+ *                  the save is silent.
+ *
+ *                  Default: `false`. Matches the pre-flag frontend
+ *                  behaviour (updates never used to email) and the
+ *                  server's `nil → silent` default for PUT /tasks/{id}.
+ *
+ *                  The "Update" button passes `false`.
+ *                  The "Email" button passes `true`.
+ */
 export async function updateTask(
   id: string,
   text: string,
   dueDate: string,
   token?: string,
+  sendEmail: boolean = false,
 ): Promise<TaskResponse> {
   const res = await fetch(`${resolveBase()}/tasks/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: authHeaders(token),
-    body: JSON.stringify({ text, due_date: dueDate }),
+    body: JSON.stringify({
+      text,
+      due_date: dueDate,
+      send_email: sendEmail,
+    }),
   });
   return unwrap<TaskResponse>(res);
 }
 
-/** DELETE /tasks/{id} — removes a task owned by the caller. */
+/**
+ * DELETE /tasks/{id} — removes a task owned by the caller.
+ *
+ * @param sendEmail When true, the server dispatches a "Task Deleted"
+ *                  email showing what was removed. When false, the
+ *                  delete is silent.
+ *
+ *                  Default: `true`. Delete is destructive — if the
+ *                  user's account is ever compromised, we want an
+ *                  email trail of what disappeared. Matches the
+ *                  server's `absent → email` default for DELETE.
+ *
+ *                  The frontend delete flow passes `true` explicitly
+ *                  (currently there is no "silent delete" button in
+ *                  the UI — this parameter exists for future use
+ *                  and for direct API consumers).
+ *
+ * The `send_email` flag goes in the QUERY STRING for DELETE — some
+ * proxies / HTTP clients strip request bodies on DELETE, so the
+ * handler reads it from the query.
+ */
 export async function deleteTask(
   id: string,
   token?: string,
+  sendEmail: boolean = true,
 ): Promise<TaskMessageResponse> {
-  const res = await fetch(`${resolveBase()}/tasks/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    headers: authHeaders(token),
-  });
+  const query = sendEmail ? '?send_email=true' : '?send_email=false';
+  const res = await fetch(
+    `${resolveBase()}/tasks/${encodeURIComponent(id)}${query}`,
+    {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    },
+  );
   return unwrap<TaskMessageResponse>(res);
 }
 

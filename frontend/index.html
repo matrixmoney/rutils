@@ -1949,14 +1949,29 @@
                 <input type="date" id="tasks-new-date"
                   class="bg-white border border-gray-300 rounded-lg py-1.5 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </label>
-              <button type="button" id="tasks-new-send"
-                class="sm:ml-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                </svg>
-                SEND
-              </button>
+
+              <!-- ── Two actions: silent save, or save + email ── -->
+              <div class="sm:ml-auto flex flex-col sm:flex-row gap-2">
+                <!-- Add: silent save, no email -->
+                <button type="button" id="tasks-new-add"
+                  class="px-5 py-2.5 rounded-xl bg-white hover:bg-indigo-50 border border-indigo-300 text-indigo-700 text-sm font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 4v16m8-8H4"/>
+                  </svg>
+                  Add
+                </button>
+
+                <!-- Email: save + send confirmation email -->
+                <button type="button" id="tasks-new-email"
+                  class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold transition-colors shadow-sm flex items-center justify-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  </svg>
+                  Email
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1997,6 +2012,13 @@
 
         </div>
         <!-- /TASKS VIEW -->
+        <!--
+          NOTE: The edit-card buttons (Cancel / Update / Email) are
+          rendered dynamically by frontend/src/tasks-ui.ts — see
+          renderEditCard(). The new-task card above is the only static
+          button UI; the create flow routes to #tasks-new-add (silent)
+          or #tasks-new-email (silent + notification email).
+        -->
 
 
       </div>

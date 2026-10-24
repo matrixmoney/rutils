@@ -277,5 +277,239 @@
     "must_reset_password": false,
     "created_at": "2026-10-23T08:47:43.707043101Z",
     "updated_at": "2026-10-23T08:47:43.707043101Z"
+  },
+  {
+    "id": "usr_e131a355f586c169",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759812935_17phsq@example.com",
+    "password_hash": "$2a$12$im0jMvh5M98W.o9GCBale.mSdCR0JeWTmks0xp3NNs7hpGa01QPZm",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:13.195379023Z",
+    "updated_at": "2026-10-23T12:50:13.195379023Z"
+  },
+  {
+    "id": "usr_c2056daf340032a0",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759812960_3gtsdi@example.com",
+    "password_hash": "$2a$12$0QbujG1Iy2LUFu0hJW6RJ.FDUrhYt/0i1ULiuTsTZmxknAsBqFbE2",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:13.218945977Z",
+    "updated_at": "2026-10-23T12:50:13.218945977Z"
+  },
+  {
+    "id": "usr_5c43a44227dfa58f",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759818367_4ddeux@example.com",
+    "password_hash": "$2a$12$Q0AefvbT6/6bPaz3Hu5R4uVRXzeg7UAgMV15NZhLTUwW7OFHq0QcS",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:18.607354214Z",
+    "updated_at": "2026-10-23T12:50:18.607354214Z"
+  },
+  {
+    "id": "usr_f3421ba2da8b31e0",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759823777_y14vxs@example.com",
+    "password_hash": "$2a$12$.tns7Z3OHnnI2bNVR2FvHeEjoGGhZ0YzAxsHrQNa.1i2JgZYPO5aS",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:24.020092732Z",
+    "updated_at": "2026-10-23T12:50:24.020092732Z"
+  },
+  {
+    "id": "usr_2b84d5b3870a653c",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759824299_qeh3ol@example.com",
+    "password_hash": "$2a$12$JmkdBVonWID9NSJeqWmvL.Chzsg17vlhMZ/pA/U.LwtSccfYdFPde",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:24.539507651Z",
+    "updated_at": "2026-10-23T12:50:24.539507651Z"
+  },
+  {
+    "id": "usr_b9098e9dc8b11d53",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759824803_tomqcb@example.com",
+    "password_hash": "$2a$12$y7lY/aEYMRjc/EwWnKNGCOMFF8f69F2I5UJAK3HL8uXr9aDUGbXCu",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:25.04317457Z",
+    "updated_at": "2026-10-23T12:50:25.04317457Z"
+  },
+  {
+    "id": "usr_7d2329550abc25e7",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759830007_hvzcqt@example.com",
+    "password_hash": "$2a$12$DYhOxwffz.2xVTG1V/s3A.uhTMfAgR70Op4fODILszVJevz0puypu",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:30.24802314Z",
+    "updated_at": "2026-10-23T12:50:30.24802314Z"
+  },
+  {
+    "id": "usr_964e8c7b2cd5d5f6",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759830575_6tzmai@example.com",
+    "password_hash": "$2a$12$./jalLxPt/jE.x9pL43cbuH5eGkL08bbOj.vIy8dpIS5hYL0L2yVq",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:30.843234646Z",
+    "updated_at": "2026-10-23T12:50:30.843234646Z"
+  },
+  {
+    "id": "usr_da2df8eca32db6cd",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759831095_zmrr02@example.com",
+    "password_hash": "$2a$12$LBtsYRVBQbq4PQ/hpKYAwOPv46Ox4oyj5UDOxacBbs7oxQZb6D5xK",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:31.349575542Z",
+    "updated_at": "2026-10-23T12:50:31.349575542Z"
+  },
+  {
+    "id": "usr_21cb623dfeaed18f",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759831601_wt9hwy@example.com",
+    "password_hash": "$2a$12$Y3/aJUo.bEK9fdUZpxcVU.AzP7MgxVfrfTNdSk7mEc6zQmFfTk4Qa",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:31.840812719Z",
+    "updated_at": "2026-10-23T12:50:31.840812719Z"
+  },
+  {
+    "id": "usr_84bdb20433f7a2f0",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759832105_64flv3@example.com",
+    "password_hash": "$2a$12$252gRWVllEGFWMbZQVPiTeEz9U1VArw7b0Vgml0EpXLjUx/LsOqra",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:32.347376229Z",
+    "updated_at": "2026-10-23T12:50:32.347376229Z"
+  },
+  {
+    "id": "usr_105374a0f65dcd6d",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759832601_6fxs0m@example.com",
+    "password_hash": "$2a$12$EvYvAa7gkTCZVD2VQxd5WeQSJHuEhKFyWXPMELVGX./yHY7/ZiEei",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:32.842023494Z",
+    "updated_at": "2026-10-23T12:50:32.842023494Z"
+  },
+  {
+    "id": "usr_23001d502d6bc0c7",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759833107_9bkb5n@example.com",
+    "password_hash": "$2a$12$m9b8yOdUeLX9ES3dyZfBleDAa4sCOZmd5ujNFMDhx6sMRvzrrtTO2",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:33.353554339Z",
+    "updated_at": "2026-10-23T12:50:33.353554339Z"
+  },
+  {
+    "id": "usr_37b82ecbab6892c0",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759833615_bqi8my@example.com",
+    "password_hash": "$2a$12$9wTFf6iubUMkhCO4UdUYW.cmjN9J6TibiluZSjubOtYIiA4ylpkuC",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:33.854426546Z",
+    "updated_at": "2026-10-23T12:50:33.854426546Z"
+  },
+  {
+    "id": "usr_b9a4a27fd0e2654a",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759834107_adcg76@example.com",
+    "password_hash": "$2a$12$Hxhwch2jKiRlXaS55XLz.u8DTNaMLcECOr3z8DQrT5kf0bcUyjLVC",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:34.359375352Z",
+    "updated_at": "2026-10-23T12:50:34.359375352Z"
+  },
+  {
+    "id": "usr_c8dada0ba7c07e7f",
+    "name": "Persist User",
+    "email": "tasks_persist_1792759834339@example.com",
+    "password_hash": "$2a$12$cM5zy.QBqa5pQyDzW9c4yueWmJGeSYFAgUios6QpAqyech4XJZ9m2",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:34.613933106Z",
+    "updated_at": "2026-10-23T12:50:34.613933106Z"
+  },
+  {
+    "id": "usr_532daac403bbf371",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759834645_59e1oq@example.com",
+    "password_hash": "$2a$12$xUpXjFlW9Uw.8NhG33IOx.RsBiwQgmkYn0hCyYRoYB3eS6vjvDRrK",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:34.908710368Z",
+    "updated_at": "2026-10-23T12:50:34.908710368Z"
+  },
+  {
+    "id": "usr_0fbc68c3b0a4673d",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759840142_8hueq3@example.com",
+    "password_hash": "$2a$12$yCiH6SQ.OsR9grWHz1NTAOsX8XFbZ8U0VotU9cru4SlfwDUsUm0uC",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:40.379644221Z",
+    "updated_at": "2026-10-23T12:50:40.379644221Z"
+  },
+  {
+    "id": "usr_7cbea3a4b25b04d0",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759840713_7liv1y@example.com",
+    "password_hash": "$2a$12$AseyF6pT7Yk4GxR12JpKIue1tiF7hUnQSpqpvru74pE8Jp3sTtPk.",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:40.972962746Z",
+    "updated_at": "2026-10-23T12:50:40.972962746Z"
+  },
+  {
+    "id": "usr_231873a13b95fdac",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759840842_vhbdtv@example.com",
+    "password_hash": "$2a$12$H8q5ccYzR9io6/yHSxSrOutcSfUKhv.t9re9KW9vq/KOSyFrPbMMO",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:41.087766668Z",
+    "updated_at": "2026-10-23T12:50:41.087766668Z"
+  },
+  {
+    "id": "usr_821c340d2433f453",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759841226_tvich5@example.com",
+    "password_hash": "$2a$12$uip4GprH98UK8KF161e0IOFDB71OHOX50Ff1J548zckOzGSRIUm.y",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:41.474047666Z",
+    "updated_at": "2026-10-23T12:50:41.474047666Z"
+  },
+  {
+    "id": "usr_4a6f8652d068c39e",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759841332_w481n4@example.com",
+    "password_hash": "$2a$12$sc8h/d3zsSt49zngMSctCe76XB3fUE2ueTjEurWSMf3lOfVepIrGG",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:41.594798544Z",
+    "updated_at": "2026-10-23T12:50:41.594798544Z"
+  },
+  {
+    "id": "usr_4372722fa3c426ec",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759847022_zpsjfn@example.com",
+    "password_hash": "$2a$12$chSn8VdJIJE8iJPRo8oa4ewcCdDMgK15YwjqzeNLa6NwBaimnT.dS",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:47.26574585Z",
+    "updated_at": "2026-10-23T12:50:47.26574585Z"
+  },
+  {
+    "id": "usr_d3c9c2cb62ea69ef",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759847535_9jwdra@example.com",
+    "password_hash": "$2a$12$O08z3tLr5k5w.yPHf4A..OtOp9r9K2TkdwPyAPz3dpSIFQBwTCa.u",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:47.795407429Z",
+    "updated_at": "2026-10-23T12:50:47.795407429Z"
+  },
+  {
+    "id": "usr_ddcd83ca3993db92",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759852762_ht7s8f@example.com",
+    "password_hash": "$2a$12$p0ltln5haGJgdUiimf/9Lu9UCsTjoSDvAgny4vgu49DhjaLx6Ofly",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:53.02002512Z",
+    "updated_at": "2026-10-23T12:50:53.02002512Z"
+  },
+  {
+    "id": "usr_23a72da26c0a6f26",
+    "name": "Tasks Persona",
+    "email": "tasks_persona_1792759853290_fwi9b5@example.com",
+    "password_hash": "$2a$12$BfRwOPRNNj/x5KlZOkS8vuoizqDrMg1IIEjo8YWvsTA7HAXOqNIQ6",
+    "must_reset_password": false,
+    "created_at": "2026-10-23T12:50:53.546660342Z",
+    "updated_at": "2026-10-23T12:50:53.546660342Z"
   }
 ]
