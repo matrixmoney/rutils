@@ -12,7 +12,13 @@ import (
 	"strings"
 	"time"
 )
-
+// TaskLine is one row in an aggregated daily-reminder email. It is a
+// deliberately minimal struct (no IDs, no user IDs) because the email
+// body only needs the human-readable text and the due date.
+type TaskLine struct {
+	Text    string
+	DueDate string // YYYY-MM-DD
+}
 // EmailSender handles email dispatching via SMTP
 type EmailSender struct {
 	cfg *Config
@@ -1237,6 +1243,219 @@ The Rutils Team
 	)
 
 	return e.sendMail(toEmail, subject, textBody, htmlBody)
+}
+
+// SendDailyReminder dispatches one aggregated reminder email listing
+// every task that is due today or overdue for a single user.
+//
+// Called from the scheduler's daily-task-reminders job. The job is
+// responsible for filtering tasks down to the due/overdue set — this
+// method just renders and ships them.
+//
+// When SMTP is not configured, this method logs a development-fallback
+// line to stdout and returns nil, matching the pattern used by every
+// other Send* method in this file.
+func (e *EmailSender) SendDailyReminder(toEmail, userName string, dueTasks []TaskLine) error {
+	if len(dueTasks) == 0 {
+		return nil // nothing to send
+	}
+
+	if !e.IsConfigured() {
+		log.Printf(
+			"[AUTH-DEV] SMTP not configured in config.json. Daily reminder for <%s> simulated: %d task(s)",
+			toEmail, len(dueTasks),
+		)
+		for _, t := range dueTasks {
+			log.Printf("[AUTH-DEV]   - %s (due %s)", t.Text, t.DueDate)
+		}
+		return nil
+	}
+
+	greeting := "Hello,"
+	if strings.TrimSpace(userName) != "" {
+		greeting = fmt.Sprintf("Hello %s,", userName)
+	}
+
+	// Subject summarises the count so the user can triage from their
+	// inbox without opening the email.
+	subject := fmt.Sprintf("⏰ %d task(s) due — Rutils Daily Reminder", len(dueTasks))
+
+	// ---- Plain-text body ----
+	var textBuf strings.Builder
+	textBuf.WriteString(greeting + "\n\n")
+	textBuf.WriteString(fmt.Sprintf(
+		"You have %d task(s) due today or overdue:\n\n", len(dueTasks),
+	))
+	textBuf.WriteString("--------------------------------------------------\n")
+	for _, t := range dueTasks {
+		textBuf.WriteString(fmt.Sprintf("  • %s\n    Due: %s\n", t.Text, t.DueDate))
+	}
+	textBuf.WriteString("--------------------------------------------------\n\n")
+	textBuf.WriteString("You can view, edit, or delete these tasks anytime from the Tasks section of the app.\n\n")
+	textBuf.WriteString("Warm regards,\nThe Rutils Team\n")
+
+	// ---- HTML body ----
+	// Reuse the visual language of SendTaskNotification but render a
+	// list instead of a single-task card. Deliberately simple markup
+	// so it renders predictably in every email client.
+	var htmlBuf strings.Builder
+	htmlBuf.WriteString(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Task Reminder</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #334155;
+      -webkit-font-smoothing: antialiased;
+    }
+    table { border-collapse: collapse; }
+    .wrapper {
+      width: 100%%;
+      background-color: #f1f5f9;
+      padding: 40px 12px;
+    }
+    .card {
+      max-width: 580px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+    .banner {
+      background: linear-gradient(135deg, #4f46e5 0%%, #7c3aed 50%%, #06b6d4 100%%);
+      padding: 32px 30px;
+      text-align: center;
+      color: #ffffff;
+    }
+    .brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .brand-sub {
+      font-size: 13px;
+      opacity: 0.92;
+      margin-top: 6px;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+    .body-content {
+      padding: 32px 32px 24px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #475569;
+      margin: 0 0 16px 0;
+    }
+    .task-list {
+      list-style: none;
+      padding: 0;
+      margin: 20px 0;
+    }
+    .task-row {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #6366f1;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .task-text {
+      font-size: 15px;
+      font-weight: 600;
+      color: #0f172a;
+      margin: 0 0 4px 0;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .task-due {
+      font-size: 12px;
+      font-weight: 700;
+      color: #6366f1;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .signoff {
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid #f1f5f9;
+      font-size: 14px;
+      color: #475569;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 22px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <table role="presentation" class="wrapper">
+    <tr>
+      <td align="center">
+        <div class="card">
+          <div class="banner">
+            <h1 class="brand-title">Rutils Tasks</h1>
+            <div class="brand-sub">Daily Reminder</div>
+          </div>
+          <div class="body-content" align="left">
+            <div class="greeting">` + html.EscapeString(greeting) + `</div>
+            <p>You have <strong>` + fmt.Sprintf("%d", len(dueTasks)) + ` task(s)</strong> due today or overdue:</p>
+
+            <ul class="task-list">
+`)
+	for _, t := range dueTasks {
+		htmlBuf.WriteString(`              <li class="task-row">
+                <div class="task-text">` + html.EscapeString(t.Text) + `</div>
+                <div class="task-due">🗓 Due ` + html.EscapeString(t.DueDate) + `</div>
+              </li>
+`)
+	}
+	htmlBuf.WriteString(`            </ul>
+
+            <p>You can view, edit, or delete these tasks anytime from the <strong>Tasks</strong> section of the app.</p>
+
+            <div class="signoff">
+              Warm regards,<br>
+              <strong style="color: #1e293b;">The Rutils Team</strong>
+            </div>
+          </div>
+          <div class="footer">
+            This is an automated reminder from Rutils.<br>
+            Please do not reply directly to this email.<br>
+            &copy; 2026 Rutils. All rights reserved.
+          </div>
+        </div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`)
+
+	return e.sendMail(toEmail, subject, textBuf.String(), htmlBuf.String())
 }
 // buildMultipartMessage creates a MIME multipart/alternative message (plain text + HTML)
 func buildMultipartMessage(fromEmail, fromName, toEmail, subject, textBody, htmlBody string) []byte {

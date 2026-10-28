@@ -7,6 +7,7 @@ require (
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/ledongthuc/pdf v0.0.0-20260907135840-6c8c28e0e8a0
+	github.com/matrixmoney/rlib-scheduler v1.0.0
 	github.com/swaggo/http-swagger v1.3.3
 	github.com/swaggo/swag v1.16.2
 	golang.org/x/crypto v0.55.0

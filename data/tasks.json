@@ -263,6 +263,22 @@
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:55.812434935Z",
       "updated_at": "2026-10-23T12:50:55.812434935Z"
+    },
+    {
+      "id": "tsk_2309e635b8be3e35",
+      "user_id": "usr_23fae1e07fd248ea",
+      "text": "Step-10 smoke test",
+      "due_date": "2026-10-28",
+      "created_at": "2026-10-28T12:54:05.895607685Z",
+      "updated_at": "2026-10-28T12:54:05.895607685Z"
+    },
+    {
+      "id": "tsk_ca4361c7758caf0c",
+      "user_id": "usr_23fae1e07fd248ea",
+      "text": "Future task (should not be reminded)",
+      "due_date": "2026-11-04",
+      "created_at": "2026-10-28T12:54:15.322098105Z",
+      "updated_at": "2026-10-28T12:54:15.322098105Z"
     }
   ]
 }

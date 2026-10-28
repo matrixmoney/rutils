@@ -1,17 +1,23 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	_ "file-converter/docs" // Import swagger docs
 	"file-converter/internal/api"
 	"file-converter/internal/auth"
 	"file-converter/internal/converter" // NEW: for CheckExtractDependencies()
 	_ "file-converter/internal/formatters"
-    "file-converter/internal/tasks"
+	"file-converter/internal/scheduler" // NEW: rlib-scheduler adapter
+	"file-converter/internal/tasks"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -56,7 +62,6 @@ func main() {
 			missing,
 		)
 	}
-	
 
 	// API Server
 	apiMux := http.NewServeMux()
@@ -88,6 +93,7 @@ func main() {
 	apiMux.HandleFunc("/calculate-scientific", api.HandleScientificCalculate)
 	apiMux.HandleFunc("/formats", api.HandleListFormats)
 	apiMux.HandleFunc("/formats/", api.HandleFormatDetail)
+
 	// ============================================================
 	// Authentication Service & Endpoints
 	// ============================================================
@@ -228,7 +234,7 @@ func main() {
 	fmt.Println(" -> POST http://localhost:8080/auth/reset-password   (Forced Password Reset)")
 	fmt.Println(" -> POST http://localhost:8080/auth/change-password  (Change Password)")
 	fmt.Println(" -> GET  http://localhost:8080/auth/me               (Current User Profile)")
-		fmt.Println("Tasks (Authenticated):")
+	fmt.Println("Tasks (Authenticated):")
 	fmt.Println(" -> GET    http://localhost:8080/tasks                   (List Tasks)")
 	fmt.Println(" -> POST   http://localhost:8080/tasks                   (Create Task)")
 	fmt.Println(" -> PUT    http://localhost:8080/tasks/{id}              (Update Task)")
@@ -240,20 +246,73 @@ func main() {
 	fmt.Println("Frontend UI:")
 	fmt.Println(" -> GET  http://localhost:3000/")
 	fmt.Println("==================================================")
+
+	// ------------------------------------------------------------------
+	// Root context — cancelled on SIGINT / SIGTERM so background workers
+	// can shut down gracefully before the process exits.
+	// ------------------------------------------------------------------
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	defer rootCancel()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigCh
+		log.Printf("[shutdown] received %v; cancelling root context", sig)
+		rootCancel()
+	}()
+
+	// ------------------------------------------------------------------
 	// Start API server in background
+	// ------------------------------------------------------------------
 	go func() {
 		if err := http.ListenAndServe(":8080", api.EnableCORS(apiMux)); err != nil {
-			log.Fatalf("API Server failed to start: %v", err)
+			log.Printf("API server stopped: %v", err)
 		}
 	}()
 
-	// Start UI server in a goroutine – it’s optional and should not crash the whole process
+	// ------------------------------------------------------------------
+	// Start UI server in background (non-fatal if it fails)
+	// ------------------------------------------------------------------
 	go func() {
 		if err := http.ListenAndServe(":3000", uiMux); err != nil {
-			log.Printf("UI Server failed to start (non‑fatal): %v", err)
+			log.Printf("UI server stopped (non-fatal): %v", err)
 		}
 	}()
 
-	// Block forever so the program stays alive after both goroutines start
-	select {}
+	// ------------------------------------------------------------------
+	// Start the scheduler in the background. It blocks until rootCtx is
+	// cancelled, at which point it gracefully stops its jobs.
+	//
+	// Deps carries the stores and services each job needs. All three
+	// values were constructed earlier in main() and are safe to share
+	// across goroutines (each store is internally mutex-protected).
+	// ------------------------------------------------------------------
+	schedulerErrCh := make(chan error, 1)
+	go func() {
+		schedulerErrCh <- scheduler.Start(rootCtx, scheduler.Deps{
+			Users:       userStore,
+			Tasks:       tasksService,
+			EmailSender: emailSender,
+		})
+	}()
+
+	// ------------------------------------------------------------------
+	// Block until shutdown is requested.
+	// ------------------------------------------------------------------
+	<-rootCtx.Done()
+	log.Println("[shutdown] root context cancelled; waiting for scheduler to finish")
+
+	select {
+	case err := <-schedulerErrCh:
+		if err != nil {
+			log.Printf("[shutdown] scheduler exited with error: %v", err)
+		} else {
+			log.Println("[shutdown] scheduler stopped cleanly")
+		}
+	case <-time.After(35 * time.Second):
+		log.Println("[shutdown] scheduler did not stop within 35s; forcing exit")
+	}
+
+	log.Println("[shutdown] bye")
 }
