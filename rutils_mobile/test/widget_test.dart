@@ -1,10 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rutils_mobile/main.dart';
+import 'package:a2zutils/main.dart';
 
 void main() {
-  testWidgets('RutilsApp boots smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const RutilsApp());
+  testWidgets('App smoke test', (WidgetTester tester) async {
+    await tester.pumpWidget(const A2ZUtilsApp());
+    // Pump and settle flutter_animate animations
     await tester.pumpAndSettle(const Duration(seconds: 1));
-    expect(find.byType(RutilsApp), findsOneWidget);
+    expect(find.byType(A2ZUtilsApp), findsOneWidget);
   });
 }

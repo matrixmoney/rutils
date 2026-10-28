@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Rutils Mobile - Android Build Script
+# a2zutils Mobile - Android Build Script
 # Builds Debug APK, Production Release APK, and Play Store AAB Bundle.
 # ==============================================================================
 
@@ -21,9 +21,9 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 echo -e "${BLUE}======================================================${NC}"
-echo -e "${GREEN}${BOLD} Rutils Mobile — Android Build Engine ${NC}"
+echo -e "${GREEN}${BOLD} a2zutils Mobile — Android Build Engine ${NC}"
 echo -e "${BLUE}======================================================${NC}"
-echo -e "Target Application ID: ${CYAN}com.srilakshmiretail.rutils${NC}"
+echo -e "Target Application ID: ${CYAN}com.a2zutils${NC}"
 echo -e "Production API Target: ${CYAN}$PROD_API${NC}"
 echo -e "Build Target:          ${YELLOW}$BUILD_TYPE${NC}"
 echo ""

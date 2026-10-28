@@ -40,3 +40,9 @@ Screenshot*.png
 
 # Ignore local configuration files with sensitive data
 config.json
+
+# Playstore deployment deliverables and zips
+playstore_submission_package/
+*.zip
+*.aab
+*.apk

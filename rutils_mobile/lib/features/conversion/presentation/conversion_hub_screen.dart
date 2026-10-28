@@ -10,15 +10,23 @@ import 'railway_tab.dart';
 import 'timezone_tab.dart';
 
 class ConversionHubScreen extends StatefulWidget {
-  const ConversionHubScreen({super.key});
+  final int initialTabIndex;
+  const ConversionHubScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<ConversionHubScreen> createState() => _ConversionHubScreenState();
 }
 
 class _ConversionHubScreenState extends State<ConversionHubScreen> {
-  int _selectedTab = 0;
-  final PageController _pageController = PageController();
+  late int _selectedTab;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTab = widget.initialTabIndex.clamp(0, 5);
+    _pageController = PageController(initialPage: _selectedTab);
+  }
 
   final List<({String title, IconData icon, Widget screen})> _tabs = [
     (title: 'File', icon: Icons.transform_rounded, screen: const FileConverterTab()),

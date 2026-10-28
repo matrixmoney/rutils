@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
 import 'api_exception.dart';
 
@@ -10,7 +9,6 @@ class ApiClient {
 
   late Dio dio;
   String _baseUrl = ApiConstants.getDefaultBaseUrl();
-  String? _authToken;
 
   ApiClient._internal() {
     dio = Dio(
@@ -27,9 +25,6 @@ class ApiClient {
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          if (_authToken != null && _authToken!.isNotEmpty) {
-            options.headers['Authorization'] = 'Bearer $_authToken';
-          }
           return handler.next(options);
         },
         onError: (DioException e, handler) {
@@ -40,23 +35,10 @@ class ApiClient {
   }
 
   String get baseUrl => _baseUrl;
-  String? get authToken => _authToken;
 
   void setBaseUrl(String url) {
     _baseUrl = url.trim().replaceAll(RegExp(r'/+$'), '');
     dio.options.baseUrl = _baseUrl;
-  }
-
-  void setAuthToken(String? token) {
-    _authToken = token;
-  }
-
-  Future<void> initFromStorage() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedToken = prefs.getString('rutils_token');
-    if (savedToken != null && savedToken.isNotEmpty) {
-      _authToken = savedToken;
-    }
   }
 
   ApiException _handleError(dynamic error) {
@@ -123,19 +105,35 @@ class ApiClient {
   Future<Response<List<int>>> postMultipartBytes(
     String path, {
     required FormData formData,
+    void Function(int sent, int total)? onProgress,
     void Function(int sent, int total)? onSendProgress,
   }) async {
     try {
+      final progressCallback = onProgress ?? onSendProgress;
       final response = await dio.post<List<int>>(
         path,
         data: formData,
-        onSendProgress: onSendProgress,
+        onSendProgress: progressCallback,
         options: Options(
           responseType: ResponseType.bytes,
         ),
       );
       return response;
     } catch (e) {
+      if (e is DioException && e.response?.data != null && e.response?.data is List<int>) {
+        try {
+          final errorString = utf8.decode(e.response!.data as List<int>);
+          final jsonMap = jsonDecode(errorString);
+          if (jsonMap is Map<String, dynamic> && jsonMap.containsKey('error')) {
+            throw ApiException(
+              jsonMap['error'].toString(),
+              statusCode: e.response?.statusCode,
+            );
+          }
+        } catch (parseError) {
+          if (parseError is ApiException) rethrow;
+        }
+      }
       throw _handleError(e);
     }
   }
@@ -143,13 +141,13 @@ class ApiClient {
   Future<dynamic> postMultipartJson(
     String path, {
     required FormData formData,
-    void Function(int sent, int total)? onSendProgress,
+    void Function(int sent, int total)? onProgress,
   }) async {
     try {
       final response = await dio.post(
         path,
         data: formData,
-        onSendProgress: onSendProgress,
+        onSendProgress: onProgress,
       );
       return response.data;
     } catch (e) {

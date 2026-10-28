@@ -1,11 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'core/network/api_client.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/mobile_device_frame.dart';
-import 'features/auth/presentation/login_screen.dart';
-import 'features/auth/services/auth_service.dart';
 import 'features/main_layout/presentation/main_nav_scaffold.dart';
 
 void main() async {
@@ -22,17 +19,7 @@ void main() async {
     ),
   );
 
-  try {
-    final apiClient = ApiClient();
-    await apiClient.initFromStorage();
-
-    final authService = AuthService();
-    await authService.init();
-  } catch (e, st) {
-    debugPrint('Init error: $e\n$st');
-  }
-
-  runApp(const RutilsApp());
+  runApp(const A2ZUtilsApp());
 }
 
 /// Allows smooth click-and-drag gestures on desktop browsers matching touch screens
@@ -46,25 +33,18 @@ class MobileScrollBehavior extends MaterialScrollBehavior {
   };
 }
 
-class RutilsApp extends StatelessWidget {
-  const RutilsApp({super.key});
+class A2ZUtilsApp extends StatelessWidget {
+  const A2ZUtilsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: AuthService(),
-      builder: (context, _) {
-        final isLoggedIn = AuthService().isLoggedIn;
-
-        return MaterialApp(
-          title: 'Rutils Mobile',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          scrollBehavior: MobileScrollBehavior(),
-          builder: (context, child) => MobileDeviceFrame(child: child ?? const SizedBox.shrink()),
-          home: isLoggedIn ? const MainNavScaffold() : const LoginScreen(),
-        );
-      },
+    return MaterialApp(
+      title: 'a2zutils',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      scrollBehavior: MobileScrollBehavior(),
+      builder: (context, child) => MobileDeviceFrame(child: child ?? const SizedBox.shrink()),
+      home: const MainNavScaffold(),
     );
   }
 }

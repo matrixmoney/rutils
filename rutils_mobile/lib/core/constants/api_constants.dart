@@ -26,16 +26,7 @@ class ApiConstants {
     return prodBaseUrl;
   }
 
-  // Endpoints
-  static const String login = '/auth/login';
-  static const String register = '/auth/register';
-  static const String logout = '/auth/logout';
-  static const String forgotPassword = '/auth/forgot-password';
-  static const String resetPassword = '/auth/reset-password';
-  static const String changePassword = '/auth/change-password';
-  static const String me = '/auth/me';
-
-  // Conversion
+  // Conversion Endpoints
   static const String convertFile = '/convert';
   static const String convertPdfSize = '/convert-pdf-size';
   static const String convertMeasurement = '/convert-measurement';
@@ -43,15 +34,10 @@ class ApiConstants {
   static const String convertRailway = '/convert-railway';
   static const String convertNumeral = '/convert-numeral';
 
-  // Calculations
+  // Calculations Endpoints
   static const String calculateBmi = '/calculate-bmi';
   static const String calculateAge = '/calculate-age';
   static const String calculatePercentage = '/calculate-percentage';
   static const String calculateEmi = '/calculate-emi';
   static const String calculateTax = '/calculate-tax';
-
-  // Markets
-  static const String niftyCompanies = '/nifty50/companies';
-  static const String chartCompanies = '/market/chart/companies';
-  static const String chartData = '/market/chart/data';
 }

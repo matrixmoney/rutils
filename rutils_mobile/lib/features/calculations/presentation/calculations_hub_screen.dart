@@ -9,15 +9,23 @@ import 'percentage_calculator_tab.dart';
 import 'tax_calculator_tab.dart';
 
 class CalculationsHubScreen extends StatefulWidget {
-  const CalculationsHubScreen({super.key});
+  final int initialTabIndex;
+  const CalculationsHubScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<CalculationsHubScreen> createState() => _CalculationsHubScreenState();
 }
 
 class _CalculationsHubScreenState extends State<CalculationsHubScreen> {
-  int _selectedTab = 0;
-  final PageController _pageController = PageController();
+  late int _selectedTab;
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTab = widget.initialTabIndex.clamp(0, 4);
+    _pageController = PageController(initialPage: _selectedTab);
+  }
 
   final List<({String title, IconData icon, Widget screen})> _tabs = [
     (title: 'BMI', icon: Icons.monitor_weight_rounded, screen: const BmiCalculatorTab()),
