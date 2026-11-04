@@ -16,6 +16,7 @@ import (
 	"file-converter/internal/auth"
 	"file-converter/internal/converter" // NEW: for CheckExtractDependencies()
 	_ "file-converter/internal/formatters"
+    _ "file-converter/internal/format"
 	"file-converter/internal/scheduler" // NEW: rlib-scheduler adapter
 	"file-converter/internal/tasks"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -92,6 +93,7 @@ func main() {
 	apiMux.HandleFunc("/calculate-compound-interest", api.HandleCompoundInterestCalculate)
 	apiMux.HandleFunc("/calculate-scientific", api.HandleScientificCalculate)
 	apiMux.HandleFunc("/formats", api.HandleListFormats)
+	apiMux.HandleFunc("/format", api.HandleFormat)
 	apiMux.HandleFunc("/formats/", api.HandleFormatDetail)
 
 	// ============================================================

@@ -359,7 +359,7 @@ function wireRepairForm(): void {
 async function handleRepairSubmit(e: Event): Promise<void> {
   e.preventDefault();
 
-  const levelSel  = document.getElementById('formatters-repair-level') as HTMLSelectElement;
+  
   const describe  = document.getElementById('formatters-repair-describe') as HTMLInputElement;
   const statusEl  = document.getElementById('formatters-repair-status') as HTMLParagraphElement;
   const reportBox = document.getElementById('formatters-repair-report') as HTMLDivElement;
@@ -413,14 +413,14 @@ async function handleRepairSubmit(e: Event): Promise<void> {
     sourceLabel = `${f.name} (${formatBytes(f.size)})`;
   }
 
-  fd.append('repairLevel', levelSel.value);
+ 
   if (describe.checked) fd.append('describe', 'true');
 
   // ---------- Send the request ----------
   try {
     statusEl.textContent = `Repairing ${sourceLabel}…`;
 
-    const apiUrl = getRepairApiUrl();
+       const apiUrl = getFormatApiUrl();
     const res = await fetch(apiUrl, { method: 'POST', body: fd });
 
     if (!res.ok) {
@@ -448,10 +448,10 @@ async function handleRepairSubmit(e: Event): Promise<void> {
       // still populate the output textarea for preview.
       outputText = await res.text();
       reportPayload = {
-        format:  res.headers.get('X-Repair-Format')  ?? inferredFormat,
-        level:   res.headers.get('X-Repair-Level')   ?? levelSel.value,
-        changed: res.headers.get('X-Repair-Changed') === 'true',
-        applied: parseAppliedHeader(res.headers.get('X-Repair-Applied')),
+        format:  res.headers.get('X-Format-Format')  ?? inferredFormat,
+        level:   'auto',
+        changed: res.headers.get('X-Format-Changed') === 'true',
+        applied: parseAppliedHeader(res.headers.get('X-Format-Applied')),
       };
     }
 
@@ -583,14 +583,14 @@ function wireOutputActions(): void {
 // Helpers
 // ============================================================
 
-function getRepairApiUrl(): string {
+function getFormatApiUrl(): string {
   const isLocal =
     window.location.hostname === 'localhost' ||
     window.location.hostname === '127.0.0.1';
 
   return isLocal
-    ? 'http://localhost:8080/repair'
-    : 'https://utils.api.srilakshmiretail.in/repair';
+    ? 'http://localhost:8080/format'
+    : 'https://utils.api.srilakshmiretail.in/format';
 }
 
 function setText(id: string, text: string): void {

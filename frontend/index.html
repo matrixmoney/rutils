@@ -1707,11 +1707,11 @@
               <!-- Repair panel (hidden until a format is picked) -->
               <div id="formatters-repair-panel" class="hidden border-t border-gray-200 pt-6">
                 <h3 class="text-lg font-bold text-gray-800 mb-1">
-                  Repair <span id="formatters-active-format" class="text-amber-600"></span> file
+                  Format <span id="formatters-active-format" class="text-amber-600"></span> file
                 </h3>
-                <p class="text-sm text-gray-500 mb-4">
-                  Paste text or upload a malformed file — the server will apply a rules-based repair pipeline.
-                </p>
+                  <p class="text-sm text-gray-500 mb-4">
+                    Paste or upload a file — the server will return a cleanly formatted version.
+                  </p>
 
                 <form id="formatters-repair-form" class="space-y-5">
 
@@ -1768,28 +1768,18 @@
                   </div>
 
                   <!-- ── Level + Describe ── -->
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700 mb-2">Repair Level</label>
-                      <select id="formatters-repair-level"
-                        class="w-full bg-white border border-gray-300 rounded-lg py-2 px-3 h-[42px] focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm">
-                        <option value="strict">Strict (lexical only — lossless)</option>
-                        <option value="normal" selected>Normal (structural fixes)</option>
-                        <option value="lenient">Lenient (may change values)</option>
-                      </select>
-                    </div>
-                    <div class="flex items-end">
-                      <label class="flex items-center gap-3 text-sm text-gray-700">
-                        <input type="checkbox" id="formatters-repair-describe" checked
-                          class="w-4 h-4 text-amber-600 bg-gray-100 border-gray-300 rounded focus:ring-amber-500">
-                        Include detailed repair report
-                      </label>
-                    </div>
+                  <!-- ── Describe toggle (level dropdown removed) ── -->
+                  <div class="flex items-center gap-3">
+                    <input type="checkbox" id="formatters-repair-describe" checked
+                      class="w-4 h-4 text-amber-600 bg-gray-100 border-gray-300 rounded focus:ring-amber-500">
+                    <label for="formatters-repair-describe" class="text-sm text-gray-700">
+                      Include detailed formatting report
+                    </label>
                   </div>
 
                   <button type="submit"
                     class="w-full px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors shadow-sm">
-                    Repair &amp; Preview
+                    Format &amp; Preview
                   </button>
 
                   <p id="formatters-repair-status" class="text-sm text-center hidden"></p>
@@ -1797,7 +1787,7 @@
                   <!-- ── Report card ── -->
                   <div id="formatters-repair-report"
                     class="hidden mt-4 p-5 bg-amber-50 rounded-lg border border-amber-100 shadow-inner">
-                    <span class="text-xs text-amber-600 font-semibold uppercase tracking-wide block mb-3">Repair
+                    <span class="text-xs text-amber-600 font-semibold uppercase tracking-wide block mb-3">Formatting
                       Report</span>
 
                     <div class="grid grid-cols-3 gap-3 mb-4">
@@ -1806,9 +1796,8 @@
                         <span id="formatters-result-format" class="text-lg font-bold text-amber-800">—</span>
                       </div>
                       <div class="bg-white border border-amber-100 rounded-lg p-3 text-center">
-                        <span class="text-xs text-gray-500 font-semibold uppercase block mb-1">Level</span>
-                        <span id="formatters-result-level" class="text-lg font-bold text-amber-800">—</span>
-                      </div>
+                        <span class="text-xs text-gray-500 font-semibold uppercase block mb-1">Mode</span>
+                        <span id="formatters-result-level" class="text-lg font-bold text-amber-800">auto</span>                   </div>
                       <div class="bg-white border border-amber-100 rounded-lg p-3 text-center">
                         <span class="text-xs text-gray-500 font-semibold uppercase block mb-1">Changed</span>
                         <span id="formatters-result-changed" class="text-lg font-bold text-amber-800">—</span>
@@ -1829,7 +1818,7 @@
                     <!-- ── Repaired Output: view, copy, download ── -->
                     <div id="formatters-repair-output-section" class="pt-4 border-t border-amber-200">
                       <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
-                        <p class="text-xs text-amber-700 font-semibold uppercase tracking-wide">Repaired Output</p>
+                        <p class="text-xs text-amber-700 font-semibold uppercase tracking-wide">Formatted Output</p>
                         <span id="formatters-repair-output-meta" class="text-xs text-gray-500 font-medium"></span>
                       </div>
 
