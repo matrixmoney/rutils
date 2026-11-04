@@ -127,7 +127,8 @@ var (
 // e.g. a file named `config.yml` resolves to the `yaml` formatter
 // even though only `yaml` is registered.
 var extensionAlias = map[string]string{
-	"yml": "yaml", // YAML's other conventional extension
+	"yml":      "yaml", // YAML's other conventional extension
+	"markdown": "md",   // Markdown's long-form extension
 }
 
 // register is called from each format file's init(). Duplicate
@@ -173,25 +174,21 @@ func NewEngine() *Engine { return &Engine{} }
 // Sniffing order (from most to least specific):
 //
 //  1. JSON вҖ” first non-space byte is `{` or `[` AND the content
-//     parses as JSON. Runs first because JSON is the strongest signal
-//     available: the first byte is unambiguous, and unlike INI/YAML,
-//     the content must actually parse to match. This correctly
-//     excludes `[section]` (INI) and `[1,2,3]` (JSON array) without
-//     ambiguity.
+//     parses as JSON.
 //  2. XML вҖ” `<?xml` prolog, `<!DOCTYPE` that is not HTML, or `<tag>`
 //     where the tag name is NOT one of the standard HTML tag names.
-//     This distinguishes `<root>` (XML) from `<div>` (HTML).
 //  3. TOML вҖ” requires a table header OR 2+ key=value lines with at
 //     least one quoted string value.
 //  4. INI вҖ” a `[section]` header OR 2+ bare key=value lines (no
 //     quoted values).
 //  5. YAML вҖ” `---` marker OR 2+ `key: value` lines.
 //  6. CSV вҖ” 2+ non-empty lines with the same positive delimiter count
-//     across `,`, `;`, or `\t`. Also handles inputs that contain
-//     literal `\n` escape sequences instead of real newlines. Runs
-//     AFTER INI/TOML/YAML so that `key=value` (INI) and `key: value`
-//     (YAML) are not misidentified.
-//  7. HTML вҖ” doctype, `<html`, or any tag (fallback for anything that
+//     across `,`, `;`, or `\t`, OR the same pattern after unescaping
+//     literal `\n` sequences.
+//  7. Markdown вҖ” a heading, code fence, blockquote, setext underline,
+//     or reference link line is present. Runs before the HTML fallback
+//     because plain prose with a `# heading` is Markdown, not HTML.
+//  8. HTML вҖ” doctype, `<html`, or any tag (fallback for anything that
 //     starts with `<` and was not routed to XML above).
 func (e *Engine) DetectFormat(filename string, raw []byte) string {
 	// 1. Extension
@@ -201,7 +198,7 @@ func (e *Engine) DetectFormat(filename string, raw []byte) string {
 			return ext
 		}
 		// Some formats have multiple extensions that map to the
-		// same formatter. YAML is the only such case today.
+		// same formatter. YAML and Markdown are the only such cases.
 		if alias, ok := extensionAlias[ext]; ok {
 			return alias
 		}
@@ -216,11 +213,6 @@ func (e *Engine) DetectFormat(filename string, raw []byte) string {
 	// -------------------------------------------------------------------------
 	// JSON sniff вҖ” runs first because it is the strongest signal.
 	// -------------------------------------------------------------------------
-	// A JSON document starts with `{` (object) or `[` (array), and вҖ”
-	// unlike INI sections `[name]` or YAML arrays `[1, 2]` вҖ” the
-	// content must actually parse as JSON to match. The
-	// `json.Valid` call is a real parse, so `[section]` (INI) is
-	// correctly excluded.
 	if body[0] == '{' || body[0] == '[' {
 		if json.Valid(body) {
 			return "json"
@@ -231,28 +223,17 @@ func (e *Engine) DetectFormat(filename string, raw []byte) string {
 	// XML sniff вҖ” runs before TOML/INI/YAML/CSV because XML is
 	// unambiguously identified by the leading `<`.
 	// -------------------------------------------------------------------------
-	// XML is one of:
-	//   - `<?xml` prolog at the very start (case-insensitive)
-	//   - `<!DOCTYPE` that is NOT `<!DOCTYPE html`
-	//   - `<tag>` where tag is NOT a standard HTML tag name
-	//
-	// The tag-name check is what distinguishes `<root>` (XML) from
-	// `<div>` (HTML). Both start with `<`, but only one is HTML.
 	if body[0] == '<' {
 		lower := strings.ToLower(string(body))
-		// `<?xml` prolog.
 		if strings.HasPrefix(lower, "<?xml") {
 			return "xml"
 		}
-		// `<!DOCTYPE` that is not HTML.
 		if strings.HasPrefix(lower, "<!doctype") {
 			if strings.HasPrefix(lower, "<!doctype html") {
 				return "html"
 			}
 			return "xml"
 		}
-		// Tag name check: extract the first element name and check
-		// whether it is a standard HTML tag.
 		if len(body) >= 2 && body[1] != '!' && body[1] != '?' && body[1] != '/' {
 			tagName := extractXMLTagName(body)
 			if tagName != "" && !isHTMLTagName(tagName) {
@@ -283,19 +264,24 @@ func (e *Engine) DetectFormat(filename string, raw []byte) string {
 	}
 
 	// -------------------------------------------------------------------------
-	// CSV content sniff вҖ” runs AFTER INI/TOML/YAML so that
-	// `key=value` (INI) and `key: value` (YAML) are not misidentified
-	// as CSV. A file that reaches here did NOT look like any of those
-	// formats. If it still has a consistent positive delimiter count
-	// across lines, it is CSV.
+	// CSV content sniff
 	// -------------------------------------------------------------------------
 	if csvLooksLikeCSV(body) {
 		return "csv"
 	}
 
 	// -------------------------------------------------------------------------
-	// HTML fallback вҖ” any remaining tag goes to the HTML parser,
-	// which recovers from anything.
+	// Markdown content sniff
+	// -------------------------------------------------------------------------
+	// Runs after CSV (CSV has stronger structural signals) and
+	// before the HTML fallback (any remaining `<`-leading content
+	// is HTML, not Markdown).
+	if isLikelyMarkdown(body) {
+		return "md"
+	}
+
+	// -------------------------------------------------------------------------
+	// HTML fallback
 	// -------------------------------------------------------------------------
 	if body[0] == '<' {
 		return "html"
@@ -324,8 +310,6 @@ func (e *Engine) Format(filename string, raw []byte) ([]byte, Report, error) {
 		return nil, Report{}, ErrUnsupportedFormat
 	}
 
-	// Defensive copy so a buggy formatter cannot corrupt the caller's
-	// slice.
 	safe := make([]byte, len(raw))
 	copy(safe, raw)
 
@@ -334,7 +318,6 @@ func (e *Engine) Format(filename string, raw []byte) ([]byte, Report, error) {
 		return nil, report, err
 	}
 
-	// Fill in Report.Format if a formatter forgot to.
 	if report.Format == "" {
 		report.Format = name
 	}
@@ -342,7 +325,6 @@ func (e *Engine) Format(filename string, raw []byte) ([]byte, Report, error) {
 }
 
 // trimBOMAndSpace strips a UTF-8 BOM and leading ASCII whitespace.
-// Used by DetectFormat so the sniffing logic sees the real first byte.
 func trimBOMAndSpace(b []byte) []byte {
 	if len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
 		b = b[3:]
@@ -363,12 +345,8 @@ func trimBOMAndSpace(b []byte) []byte {
 // XML detection helpers
 // -----------------------------------------------------------------------------
 
-// extractXMLTagName returns the first element name from body, or "" if
-// none is found. Used by DetectFormat to distinguish `<root>` (XML)
-// from `<div>` (HTML). The caller must ensure body[0] == '<'.
 func extractXMLTagName(body []byte) string {
 	i := 1
-	// A tag name starts with a letter or an underscore.
 	if i >= len(body) || !isXMLLetter(body[i]) {
 		return ""
 	}
@@ -379,19 +357,14 @@ func extractXMLTagName(body []byte) string {
 	return string(body[start:i])
 }
 
-// isXMLLetter reports whether c is a letter that can start an XML name.
 func isXMLLetter(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
 }
 
-// isXMLNameChar reports whether c is a valid XML name character.
 func isXMLNameChar(c byte) bool {
 	return isXMLLetter(c) || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == ':'
 }
 
-// isHTMLTagName reports whether the given tag name is one of the
-// standard HTML tag names. Used by DetectFormat to route `<div>` to
-// the HTML formatter and `<root>` to the XML formatter.
 func isHTMLTagName(name string) bool {
 	htmlTags := map[string]bool{
 		"html": true, "head": true, "body": true, "title": true,
@@ -419,19 +392,11 @@ func isHTMLTagName(name string) bool {
 // TOML detection helpers
 // -----------------------------------------------------------------------------
 
-// isLikelyTOML reports whether the leading bytes of body look like a
-// TOML document. See the comment at the call site in DetectFormat.
-//
-// The discriminator is quoted string values: TOML frequently uses
-// them (`key = "value"`), while INI almost never does. A file with
-// `[section]` headers AND quoted values is overwhelmingly TOML.
 func isLikelyTOML(body []byte) bool {
-	// Reject HTML/XML.
 	trimmedStart := bytes.TrimSpace(body)
 	if len(trimmedStart) > 0 && trimmedStart[0] == '<' {
 		return false
 	}
-	// Reject JSON.
 	if len(trimmedStart) > 0 && trimmedStart[0] == '{' {
 		return false
 	}
@@ -446,26 +411,19 @@ func isLikelyTOML(body []byte) bool {
 		if t == "" || strings.HasPrefix(t, "#") {
 			continue
 		}
-
-		// Table header вҖ” `[name]` or `[[name]]`.
 		if strings.HasPrefix(t, "[") && strings.HasSuffix(t, "]") {
 			hasHeader = true
 			continue
 		}
-
-		// Key-value line.
 		eq := strings.IndexByte(t, '=')
 		if eq <= 0 {
 			continue
 		}
-
 		key := strings.TrimSpace(t[:eq])
 		value := strings.TrimSpace(t[eq+1:])
 		if key == "" {
 			continue
 		}
-
-		// Quoted value?
 		if len(value) > 0 && (value[0] == '"' || value[0] == '\'') {
 			quotedKeyValue++
 		} else {
@@ -473,16 +431,12 @@ func isLikelyTOML(body []byte) bool {
 		}
 	}
 
-	// Signal (a): a table header PLUS at least one quoted value.
 	if hasHeader && quotedKeyValue >= 1 {
 		return true
 	}
-
-	// Signal (b): at least two key-value lines, at least one quoted.
 	if quotedKeyValue >= 1 && (quotedKeyValue+plainKeyValue) >= 2 {
 		return true
 	}
-
 	return false
 }
 
@@ -490,11 +444,7 @@ func isLikelyTOML(body []byte) bool {
 // INI detection helpers
 // -----------------------------------------------------------------------------
 
-// isLikelyINI reports whether the leading bytes of body look like an
-// INI document. See the comment at the call site in DetectFormat.
 func isLikelyINI(body []byte) bool {
-	// Reject anything that starts with '<' вҖ” that is HTML, XML, or a
-	// processing instruction.
 	firstLine := body
 	if idx := bytes.IndexByte(body, '\n'); idx >= 0 {
 		firstLine = body[:idx]
@@ -504,17 +454,10 @@ func isLikelyINI(body []byte) bool {
 		return false
 	}
 
-	// Pattern (a): first non-blank line is `[name]`.
 	if isINISectionHeader(trimmed) {
 		return true
 	}
 
-	// Pattern (b): at least two lines that match key=value.
-	//
-	// We deliberately do NOT count `key:value` (colon-separated)
-	// lines here. A file made entirely of colon-separated pairs
-	// with no section header and no equals-sign lines is
-	// overwhelmingly more likely to be YAML than INI.
 	lines := strings.Split(string(body), "\n")
 	kvCount := 0
 	for _, line := range lines {
@@ -523,17 +466,13 @@ func isLikelyINI(body []byte) bool {
 			strings.HasPrefix(t, "[") {
 			continue
 		}
-		// Reject lines starting with `{` вҖ” that is JSON.
 		if strings.HasPrefix(t, "{") {
 			return false
 		}
-		// Reject lines starting with `[` followed by `"` or a digit вҖ”
-		// that is JSON.
 		if strings.HasPrefix(t, "[") && len(t) > 1 &&
 			(t[1] == '"' || (t[1] >= '0' && t[1] <= '9')) {
 			return false
 		}
-		// Match key=value only (equals, not colon).
 		if hasEqualsSeparator(t) {
 			kvCount++
 			if kvCount >= 2 {
@@ -544,8 +483,6 @@ func isLikelyINI(body []byte) bool {
 	return false
 }
 
-// hasEqualsSeparator reports whether t contains '=' outside of quotes.
-// Used only by isLikelyINI to count key=value lines.
 func hasEqualsSeparator(t string) bool {
 	inQuote := byte(0)
 	for i := 0; i < len(t); i++ {
@@ -566,9 +503,6 @@ func hasEqualsSeparator(t string) bool {
 	return false
 }
 
-// isINISectionHeader reports whether the single-line input t looks
-// like an INI section header вҖ” i.e. `[name]` where `name` contains
-// only letters, digits, dots, underscores, hyphens, or spaces.
 func isINISectionHeader(t []byte) bool {
 	if len(t) < 3 || t[0] != '[' || t[len(t)-1] != ']' {
 		return false
@@ -594,21 +528,14 @@ func isINISectionHeader(t []byte) bool {
 // YAML detection helpers
 // -----------------------------------------------------------------------------
 
-// isLikelyYAML reports whether the leading bytes of body look like a
-// YAML document. See the comment at the call site in DetectFormat.
 func isLikelyYAML(body []byte) bool {
-	// Reject HTML/XML.
 	trimmedStart := bytes.TrimSpace(body)
 	if len(trimmedStart) > 0 && trimmedStart[0] == '<' {
 		return false
 	}
-
-	// Reject JSON.
 	if len(trimmedStart) > 0 && trimmedStart[0] == '{' {
 		return false
 	}
-
-	// Reject JSON arrays: `[1,2,3]` or `["a","b"]`.
 	if len(trimmedStart) > 1 && trimmedStart[0] == '[' {
 		inner := trimmedStart[1]
 		if inner == '"' || inner == ']' || (inner >= '0' && inner <= '9') ||
@@ -617,7 +544,6 @@ func isLikelyYAML(body []byte) bool {
 		}
 	}
 
-	// Pattern (a): YAML document marker `---` at the very start.
 	if bytes.HasPrefix(trimmedStart, []byte("---")) {
 		rest := trimmedStart[3:]
 		if len(rest) == 0 || rest[0] == '\n' || rest[0] == '\r' || rest[0] == ' ' || rest[0] == '\t' {
@@ -625,7 +551,6 @@ func isLikelyYAML(body []byte) bool {
 		}
 	}
 
-	// Pattern (b): at least two `key: value` or `key:value` lines.
 	lines := strings.Split(string(body), "\n")
 	kvCount := 0
 	for _, line := range lines {
@@ -643,14 +568,10 @@ func isLikelyYAML(body []byte) bool {
 	return false
 }
 
-// looksLikeYAMLMapping reports whether t starts with a plausible
-// YAML mapping key followed by ':'.
 func looksLikeYAMLMapping(t string) bool {
 	if t == "" {
 		return false
 	}
-
-	// Quoted key.
 	if t[0] == '"' || t[0] == '\'' {
 		close := strings.IndexByte(t[1:], t[0])
 		if close < 0 {
@@ -659,8 +580,6 @@ func looksLikeYAMLMapping(t string) bool {
 		after := t[1+close+1:]
 		return strings.HasPrefix(after, ":")
 	}
-
-	// Bare key: scan to the first ':' or whitespace.
 	for i := 0; i < len(t); i++ {
 		c := t[i]
 		if c == ':' {
@@ -680,48 +599,22 @@ func looksLikeYAMLMapping(t string) bool {
 // CSV detection helpers
 // -----------------------------------------------------------------------------
 
-// csvLooksLikeCSV returns true if body looks like a CSV document:
-// 2+ non-empty lines that all have the same positive count of one of
-// the delimiter candidates (`,`, `;`, or `\t`).
-//
-// This is called from DetectFormat AFTER the INI/TOML/YAML sniffs so
-// that files with `=` (INI) or `:` (YAML) never reach it. A file that
-// gets here and passes this check is very likely CSV.
-//
-// Special case: input that contains literal `\n` escape sequences
-// (two-character backslash-n) rather than real newlines is treated
-// as CSV-in-disguise IF the split parts each contain a consistent
-// number of a single delimiter. This is a very common paste artifact
-// when a user copies a CSV string out of a JSON file, a shell script,
-// or code вҖ” the escapes come along for the ride. Without this, the
-// whole input looks like a single line and the sniffer returns false,
-// producing a 415 Unsupported Media Type. With it, we correctly
-// recognize the CSV and the formatter turns it back into a real file.
 func csvLooksLikeCSV(body []byte) bool {
-	// First try: real newlines.
 	if csvLooksLikeCSVWithNewlines(body) {
 		return true
 	}
-
-	// Second try: literal `\n` escapes that should be newlines.
 	if bytes.Contains(body, []byte(`\n`)) {
-		// Replace the literal two-character `\n` sequences with
-		// real newlines, then re-run the same check.
 		unescaped := bytes.ReplaceAll(body, []byte(`\n`), []byte("\n"))
 		if csvLooksLikeCSVWithNewlines(unescaped) {
 			return true
 		}
 	}
-
 	return false
 }
 
-// csvLooksLikeCSVWithNewlines is the core sniff: 2+ non-empty lines
-// that all have the same positive delimiter count.
 func csvLooksLikeCSVWithNewlines(body []byte) bool {
 	lines := strings.Split(strings.ReplaceAll(string(body), "\r\n", "\n"), "\n")
 
-	// Collect up to 10 non-blank lines.
 	var sample []string
 	for _, line := range lines {
 		if strings.TrimSpace(line) == "" {
@@ -756,15 +649,12 @@ func csvLooksLikeCSVWithNewlines(body []byte) bool {
 	return false
 }
 
-// countDelimiterCSV counts occurrences of delim that are NOT inside
-// double-quoted regions.
 func countDelimiterCSV(line string, delim byte) int {
 	n := 0
 	inQuote := false
 	for i := 0; i < len(line); i++ {
 		c := line[i]
 		if c == '"' {
-			// Handle "" escape inside quoted fields.
 			if inQuote && i+1 < len(line) && line[i+1] == '"' {
 				i++
 				continue
@@ -777,4 +667,176 @@ func countDelimiterCSV(line string, delim byte) int {
 		}
 	}
 	return n
+}
+
+// -----------------------------------------------------------------------------
+// Markdown detection helper
+// -----------------------------------------------------------------------------
+
+// isLikelyMarkdown reports whether body contains at least one strong
+// Markdown signature. We deliberately require a *strong* signal (a
+// heading, code fence, blockquote, setext underline, or reference
+// link definition) so that plain prose with no Markdown syntax is
+// not detected as Markdown.
+//
+// Plain prose with an isolated `#` character (e.g. "issue #42") is
+// NOT a Markdown signature вҖ” we require a heading at the start of a
+// line, not just a `#` anywhere in the text.
+func isLikelyMarkdown(body []byte) bool {
+	// Reject content that starts with HTML вҖ” that is definitely not
+	// Markdown.
+	if len(body) > 0 && body[0] == '<' {
+		return false
+	}
+
+	lines := strings.Split(strings.ReplaceAll(string(body), "\r\n", "\n"), "\n")
+
+	// Walk up to the first 50 lines. Real Markdown files have their
+	// signal near the top; if the signature is buried past line 50,
+	// it's more likely to be prose with a stray `#`.
+	maxScan := 50
+	if len(lines) < maxScan {
+		maxScan = len(lines)
+	}
+
+	hasPriorContent := false
+	for i := 0; i < maxScan; i++ {
+		line := lines[i]
+		trimmed := strings.TrimLeft(line, " \t")
+
+		// ATX heading: `# ` or `## ` ... up to `###### `. Must have
+		// a space after the hashes.
+		if looksLikeATXHeading(trimmed) {
+			return true
+		}
+
+		// Fenced code block opener: 3+ backticks or tildes at the
+		// start of the line (after up to 3 leading spaces).
+		if _, ok := detectMarkdownFenceOpener(trimmed); ok {
+			return true
+		}
+
+		// Blockquote: a line starting with `> ` or `>` followed by
+		// content. A bare `>` with nothing after is a lazily
+		// continued blockquote, which is less common; we require
+		// `> ` (space after) to be conservative.
+		if strings.HasPrefix(trimmed, "> ") {
+			return true
+		}
+
+		// Setext heading underline: a line that is only `===` or
+		// `---` (3+ chars). Only counts if there is prior content
+		// (otherwise `---` at the top is a YAML doc marker, which
+		// was already claimed by the YAML sniff).
+		if hasPriorContent {
+			if isSetextUnderline(trimmed) {
+				return true
+			}
+		}
+
+		// Reference link definition: `[label]: url`. Common in
+		// README files and other long-form Markdown. Requires a
+		// leading `[` so we don't over-trigger on prose.
+		if looksLikeReferenceLinkDefinition(trimmed) {
+			return true
+		}
+
+		// Mark a line as "prior content" once we've seen a
+		// non-blank line. Setext underline detection requires
+		// this to fire (see above).
+		if strings.TrimSpace(trimmed) != "" {
+			hasPriorContent = true
+		}
+	}
+
+	return false
+}
+
+// looksLikeATXHeading reports whether trimmed begins with 1-6 `#`
+// characters followed by a space and at least one non-space char.
+func looksLikeATXHeading(trimmed string) bool {
+	hashes := 0
+	for hashes < len(trimmed) && hashes < 6 && trimmed[hashes] == '#' {
+		hashes++
+	}
+	if hashes == 0 {
+		return false
+	}
+	if hashes >= len(trimmed) {
+		// Line is only hashes, no heading text. This is a valid
+		// empty heading, but rare enough that we do not count
+		// it as a signature.
+		return false
+	}
+	// Must be followed by whitespace and text.
+	if trimmed[hashes] != ' ' && trimmed[hashes] != '\t' {
+		return false
+	}
+	rest := strings.TrimLeft(trimmed[hashes:], " \t")
+	return rest != ""
+}
+
+// detectMarkdownFenceOpener reports whether trimmed opens a fenced
+// code block. Same rules as the formatter's detectFenceOpener.
+func detectMarkdownFenceOpener(trimmed string) (string, bool) {
+	if len(trimmed) < 3 {
+		return "", false
+	}
+	first := trimmed[0]
+	if first != '`' && first != '~' {
+		return "", false
+	}
+	n := 0
+	for n < len(trimmed) && trimmed[n] == first {
+		n++
+	}
+	if n < 3 {
+		return "", false
+	}
+	marker := trimmed[:n]
+	if first == '`' && strings.ContainsRune(trimmed[n:], '`') {
+		return "", false
+	}
+	return marker, true
+}
+
+// isSetextUnderline reports whether trimmed is a valid setext heading
+// underline: 3+ `=` or 3+ `-` characters and nothing else.
+func isSetextUnderline(trimmed string) bool {
+	if len(trimmed) < 3 {
+		return false
+	}
+	first := trimmed[0]
+	if first != '=' && first != '-' {
+		return false
+	}
+	for i := 0; i < len(trimmed); i++ {
+		if trimmed[i] != first {
+			return false
+		}
+	}
+	return true
+}
+
+// looksLikeReferenceLinkDefinition reports whether trimmed looks like
+// a Markdown reference link definition: `[label]: url` or
+// `[label]: url "title"`. Requires a leading `[` so we do not
+// over-trigger on prose.
+func looksLikeReferenceLinkDefinition(trimmed string) bool {
+	if len(trimmed) < 4 || trimmed[0] != '[' {
+		return false
+	}
+	// Find the closing `]`.
+	closeIdx := strings.IndexByte(trimmed, ']')
+	if closeIdx < 2 {
+		return false
+	}
+	// Must be immediately followed by a colon.
+	after := trimmed[closeIdx+1:]
+	if len(after) == 0 || after[0] != ':' {
+		return false
+	}
+	// Must have at least one non-space character after the colon.
+	rest := strings.TrimLeft(after[1:], " \t")
+	return rest != ""
 }
