@@ -6,7 +6,7 @@ import (
 )
 
 // -----------------------------------------------------------------------
-// Test 1: canonical input → unchanged
+// Test 1: canonical input вҶ’ unchanged
 // -----------------------------------------------------------------------
 func TestINI_AlreadyCanonical(t *testing.T) {
 	in := []byte(`[server]
@@ -32,7 +32,7 @@ user = admin
 }
 
 // -----------------------------------------------------------------------
-// Test 2: messy but parseable → formatted
+// Test 2: messy but parseable вҶ’ formatted
 // -----------------------------------------------------------------------
 func TestINI_MessyButParseable(t *testing.T) {
 	in := []byte(`[server]
@@ -76,7 +76,7 @@ user : admin
 }
 
 // -----------------------------------------------------------------------
-// Test 3: garbage input → returns, with a warning
+// Test 3: garbage input вҶ’ returns, with a warning
 // -----------------------------------------------------------------------
 func TestINI_BrokenInputStillProducesOutput(t *testing.T) {
 	in := []byte(`[section]
@@ -153,16 +153,24 @@ func TestINI_DetectFormat(t *testing.T) {
 			want:     "yaml",
 		},
 		{
-			name:     "JSON array is not INI",
+			// Changed: JSON now has its own formatter with a
+			// priority sniff that runs before INI. A JSON array
+			// like `[1,2,3]` parses as JSON, so it is claimed by
+			// the json formatter, not the INI sniffer. Before the
+			// json formatter existed, this returned "" (no format
+			// matched). Now it correctly returns "json".
+			name:     "JSON array is not INI (goes to json)",
 			filename: "noext",
 			raw:      []byte(`[1,2,3]`),
-			want:     "",
+			want:     "json",
 		},
 		{
-			name:     "JSON object is not INI",
+			// Same rationale as above: JSON object is claimed by
+			// the json formatter's priority sniff.
+			name:     "JSON object is not INI (goes to json)",
 			filename: "noext",
 			raw:      []byte(`{"key": "value"}`),
-			want:     "",
+			want:     "json",
 		},
 		{
 			name:     "plain text is not INI",
@@ -184,7 +192,7 @@ func TestINI_DetectFormat(t *testing.T) {
 }
 
 // -----------------------------------------------------------------------
-// Test 5: empty input → ErrEmptyInput
+// Test 5: empty input вҶ’ ErrEmptyInput
 // -----------------------------------------------------------------------
 func TestINI_EmptyInput(t *testing.T) {
 	_, _, err := (&iniFormatter{}).FormatBytes(nil)

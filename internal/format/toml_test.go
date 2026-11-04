@@ -168,10 +168,10 @@ func TestTOML_DetectFormat(t *testing.T) {
 			want:     "yaml",
 		},
 		{
-			name:     "JSON is not TOML",
+			name:     "JSON is not TOML (goes to json)",
 			filename: "noext",
 			raw:      []byte(`{"key": "value"}`),
-			want:     "",
+			want:     "json",
 		},
 		{
 			name:     "HTML is not TOML",

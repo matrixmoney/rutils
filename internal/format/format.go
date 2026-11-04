@@ -15,7 +15,7 @@
 //
 //   - There is no "level" parameter. One formatter per format. One
 //     canonical style. The user does not have to pick "strict" vs
-//     "normal" vs "lenient" — the formatter just formats.
+//     "normal" vs "lenient" вҖ” the formatter just formats.
 //
 // Every format lives in its own file (json.go, html.go, xml.go, ...) and
 // registers itself in init(). This mirrors the pattern already used by
@@ -24,6 +24,7 @@ package format
 
 import (
 	"bytes"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -53,7 +54,7 @@ type Formatter interface {
 // Report is the minimal record of what the formatter did.
 type Report struct {
 	Format   string   `json:"format"`             // "html", "json", ...
-	Changed  bool     `json:"changed"`            // false → input was already canonical
+	Changed  bool     `json:"changed"`            // false вҶ’ input was already canonical
 	Applied  []string `json:"applied,omitempty"`  // e.g. ["indented", "normalised-tags"]
 	Warnings []string `json:"warnings,omitempty"` // e.g. ["parser recovered from unclosed tags"]
 }
@@ -130,7 +131,7 @@ var extensionAlias = map[string]string{
 }
 
 // register is called from each format file's init(). Duplicate
-// registrations panic — a duplicate is always a bug, and we want it
+// registrations panic вҖ” a duplicate is always a bug, and we want it
 // loud at startup.
 func register(f Formatter) {
 	regMu.Lock()
@@ -171,15 +172,27 @@ func NewEngine() *Engine { return &Engine{} }
 //
 // Sniffing order (from most to least specific):
 //
-//  1. TOML — requires a table header OR 2+ key=value lines with at
-//     least one quoted string value. Very specific: quoted string
-//     values distinguish TOML from INI in practice.
-//  2. INI — a `[section]` header OR 2+ bare key=value lines (no
-//     quoted values). Cannot collide with TOML because TOML runs
-//     first and requires quoted values.
-//  3. YAML — `---` marker OR 2+ `key: value` lines. Cannot collide
-//     with INI because INI requires `=` not `:`.
-//  4. HTML — doctype or `<html` or any tag.
+//  1. JSON вҖ” first non-space byte is `{` or `[` AND the content
+//     parses as JSON. Runs first because JSON is the strongest signal
+//     available: the first byte is unambiguous, and unlike INI/YAML,
+//     the content must actually parse to match. This correctly
+//     excludes `[section]` (INI) and `[1,2,3]` (JSON array) without
+//     ambiguity.
+//  2. XML вҖ” `<?xml` prolog, `<!DOCTYPE` that is not HTML, or `<tag>`
+//     where the tag name is NOT one of the standard HTML tag names.
+//     This distinguishes `<root>` (XML) from `<div>` (HTML).
+//  3. TOML вҖ” requires a table header OR 2+ key=value lines with at
+//     least one quoted string value.
+//  4. INI вҖ” a `[section]` header OR 2+ bare key=value lines (no
+//     quoted values).
+//  5. YAML вҖ” `---` marker OR 2+ `key: value` lines.
+//  6. CSV вҖ” 2+ non-empty lines with the same positive delimiter count
+//     across `,`, `;`, or `\t`. Also handles inputs that contain
+//     literal `\n` escape sequences instead of real newlines. Runs
+//     AFTER INI/TOML/YAML so that `key=value` (INI) and `key: value`
+//     (YAML) are not misidentified.
+//  7. HTML вҖ” doctype, `<html`, or any tag (fallback for anything that
+//     starts with `<` and was not routed to XML above).
 func (e *Engine) DetectFormat(filename string, raw []byte) string {
 	// 1. Extension
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(filename)), ".")
@@ -200,42 +213,91 @@ func (e *Engine) DetectFormat(filename string, raw []byte) string {
 		return ""
 	}
 
-	// TOML content sniff. Runs first because it is the most
-	// specific: it requires quoted string values, which distinguish
-	// it from plain INI files with `=` separators.
+	// -------------------------------------------------------------------------
+	// JSON sniff вҖ” runs first because it is the strongest signal.
+	// -------------------------------------------------------------------------
+	// A JSON document starts with `{` (object) or `[` (array), and вҖ”
+	// unlike INI sections `[name]` or YAML arrays `[1, 2]` вҖ” the
+	// content must actually parse as JSON to match. The
+	// `json.Valid` call is a real parse, so `[section]` (INI) is
+	// correctly excluded.
+	if body[0] == '{' || body[0] == '[' {
+		if json.Valid(body) {
+			return "json"
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// XML sniff вҖ” runs before TOML/INI/YAML/CSV because XML is
+	// unambiguously identified by the leading `<`.
+	// -------------------------------------------------------------------------
+	// XML is one of:
+	//   - `<?xml` prolog at the very start (case-insensitive)
+	//   - `<!DOCTYPE` that is NOT `<!DOCTYPE html`
+	//   - `<tag>` where tag is NOT a standard HTML tag name
+	//
+	// The tag-name check is what distinguishes `<root>` (XML) from
+	// `<div>` (HTML). Both start with `<`, but only one is HTML.
+	if body[0] == '<' {
+		lower := strings.ToLower(string(body))
+		// `<?xml` prolog.
+		if strings.HasPrefix(lower, "<?xml") {
+			return "xml"
+		}
+		// `<!DOCTYPE` that is not HTML.
+		if strings.HasPrefix(lower, "<!doctype") {
+			if strings.HasPrefix(lower, "<!doctype html") {
+				return "html"
+			}
+			return "xml"
+		}
+		// Tag name check: extract the first element name and check
+		// whether it is a standard HTML tag.
+		if len(body) >= 2 && body[1] != '!' && body[1] != '?' && body[1] != '/' {
+			tagName := extractXMLTagName(body)
+			if tagName != "" && !isHTMLTagName(tagName) {
+				return "xml"
+			}
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// TOML content sniff
+	// -------------------------------------------------------------------------
 	if isLikelyTOML(body) {
 		return "toml"
 	}
 
-	// INI content sniff. Requires a section header OR 2+ bare
-	// key=value lines (no quoted values — those would have matched
-	// the TOML sniff above).
+	// -------------------------------------------------------------------------
+	// INI content sniff
+	// -------------------------------------------------------------------------
 	if isLikelyINI(body) {
 		return "ini"
 	}
 
-	// YAML content sniff. Requires `---` marker OR 2+ `key: value`
-	// lines. Cannot collide with INI because INI requires `=`.
+	// -------------------------------------------------------------------------
+	// YAML content sniff
+	// -------------------------------------------------------------------------
 	if isLikelyYAML(body) {
 		return "yaml"
 	}
 
-	// DOCTYPE
-	lower := body
-	if len(lower) >= 15 && strings.HasPrefix(strings.ToLower(string(lower[:15])), "<!doctype html") {
-		return "html"
+	// -------------------------------------------------------------------------
+	// CSV content sniff вҖ” runs AFTER INI/TOML/YAML so that
+	// `key=value` (INI) and `key: value` (YAML) are not misidentified
+	// as CSV. A file that reaches here did NOT look like any of those
+	// formats. If it still has a consistent positive delimiter count
+	// across lines, it is CSV.
+	// -------------------------------------------------------------------------
+	if csvLooksLikeCSV(body) {
+		return "csv"
 	}
 
-	// <html …>
-	if len(lower) >= 5 && strings.HasPrefix(strings.ToLower(string(lower[:5])), "<html") {
-		return "html"
-	}
-
-	// Any tag at all → HTML is a reasonable guess, because no other
-	// supported format starts with `<` outside of XML. XML has its own
-	// `<?xml` prolog; the HTML parser will mangle that, so we require a
-	// plausible HTML element name.
-	if lower[0] == '<' && !strings.HasPrefix(strings.ToLower(string(lower[:5])), "<?xml") {
+	// -------------------------------------------------------------------------
+	// HTML fallback вҖ” any remaining tag goes to the HTML parser,
+	// which recovers from anything.
+	// -------------------------------------------------------------------------
+	if body[0] == '<' {
 		return "html"
 	}
 
@@ -298,6 +360,62 @@ func trimBOMAndSpace(b []byte) []byte {
 }
 
 // -----------------------------------------------------------------------------
+// XML detection helpers
+// -----------------------------------------------------------------------------
+
+// extractXMLTagName returns the first element name from body, or "" if
+// none is found. Used by DetectFormat to distinguish `<root>` (XML)
+// from `<div>` (HTML). The caller must ensure body[0] == '<'.
+func extractXMLTagName(body []byte) string {
+	i := 1
+	// A tag name starts with a letter or an underscore.
+	if i >= len(body) || !isXMLLetter(body[i]) {
+		return ""
+	}
+	start := i
+	for i < len(body) && isXMLNameChar(body[i]) {
+		i++
+	}
+	return string(body[start:i])
+}
+
+// isXMLLetter reports whether c is a letter that can start an XML name.
+func isXMLLetter(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+}
+
+// isXMLNameChar reports whether c is a valid XML name character.
+func isXMLNameChar(c byte) bool {
+	return isXMLLetter(c) || (c >= '0' && c <= '9') || c == '-' || c == '.' || c == ':'
+}
+
+// isHTMLTagName reports whether the given tag name is one of the
+// standard HTML tag names. Used by DetectFormat to route `<div>` to
+// the HTML formatter and `<root>` to the XML formatter.
+func isHTMLTagName(name string) bool {
+	htmlTags := map[string]bool{
+		"html": true, "head": true, "body": true, "title": true,
+		"meta": true, "link": true, "style": true, "script": true,
+		"div": true, "span": true, "p": true, "a": true,
+		"ul": true, "ol": true, "li": true, "table": true,
+		"thead": true, "tbody": true, "tfoot": true, "tr": true,
+		"td": true, "th": true, "form": true, "input": true,
+		"button": true, "select": true, "option": true, "textarea": true,
+		"h1": true, "h2": true, "h3": true, "h4": true, "h5": true, "h6": true,
+		"section": true, "article": true, "nav": true, "header": true,
+		"footer": true, "main": true, "aside": true,
+		"img": true, "br": true, "hr": true, "video": true, "audio": true,
+		"canvas": true, "svg": true, "label": true, "fieldset": true,
+		"legend": true, "iframe": true, "pre": true, "code": true,
+		"blockquote": true, "strong": true, "em": true, "b": true, "i": true,
+		"u": true, "small": true, "sub": true, "sup": true,
+		"figure": true, "figcaption": true, "details": true,
+		"summary": true, "dialog": true, "menu": true,
+	}
+	return htmlTags[strings.ToLower(name)]
+}
+
+// -----------------------------------------------------------------------------
 // TOML detection helpers
 // -----------------------------------------------------------------------------
 
@@ -329,7 +447,7 @@ func isLikelyTOML(body []byte) bool {
 			continue
 		}
 
-		// Table header — `[name]` or `[[name]]`.
+		// Table header вҖ” `[name]` or `[[name]]`.
 		if strings.HasPrefix(t, "[") && strings.HasSuffix(t, "]") {
 			hasHeader = true
 			continue
@@ -375,7 +493,7 @@ func isLikelyTOML(body []byte) bool {
 // isLikelyINI reports whether the leading bytes of body look like an
 // INI document. See the comment at the call site in DetectFormat.
 func isLikelyINI(body []byte) bool {
-	// Reject anything that starts with '<' — that is HTML, XML, or a
+	// Reject anything that starts with '<' вҖ” that is HTML, XML, or a
 	// processing instruction.
 	firstLine := body
 	if idx := bytes.IndexByte(body, '\n'); idx >= 0 {
@@ -405,11 +523,11 @@ func isLikelyINI(body []byte) bool {
 			strings.HasPrefix(t, "[") {
 			continue
 		}
-		// Reject lines starting with `{` — that is JSON.
+		// Reject lines starting with `{` вҖ” that is JSON.
 		if strings.HasPrefix(t, "{") {
 			return false
 		}
-		// Reject lines starting with `[` followed by `"` or a digit —
+		// Reject lines starting with `[` followed by `"` or a digit вҖ”
 		// that is JSON.
 		if strings.HasPrefix(t, "[") && len(t) > 1 &&
 			(t[1] == '"' || (t[1] >= '0' && t[1] <= '9')) {
@@ -449,7 +567,7 @@ func hasEqualsSeparator(t string) bool {
 }
 
 // isINISectionHeader reports whether the single-line input t looks
-// like an INI section header — i.e. `[name]` where `name` contains
+// like an INI section header вҖ” i.e. `[name]` where `name` contains
 // only letters, digits, dots, underscores, hyphens, or spaces.
 func isINISectionHeader(t []byte) bool {
 	if len(t) < 3 || t[0] != '[' || t[len(t)-1] != ']' {
@@ -556,4 +674,107 @@ func looksLikeYAMLMapping(t string) bool {
 		}
 	}
 	return false
+}
+
+// -----------------------------------------------------------------------------
+// CSV detection helpers
+// -----------------------------------------------------------------------------
+
+// csvLooksLikeCSV returns true if body looks like a CSV document:
+// 2+ non-empty lines that all have the same positive count of one of
+// the delimiter candidates (`,`, `;`, or `\t`).
+//
+// This is called from DetectFormat AFTER the INI/TOML/YAML sniffs so
+// that files with `=` (INI) or `:` (YAML) never reach it. A file that
+// gets here and passes this check is very likely CSV.
+//
+// Special case: input that contains literal `\n` escape sequences
+// (two-character backslash-n) rather than real newlines is treated
+// as CSV-in-disguise IF the split parts each contain a consistent
+// number of a single delimiter. This is a very common paste artifact
+// when a user copies a CSV string out of a JSON file, a shell script,
+// or code вҖ” the escapes come along for the ride. Without this, the
+// whole input looks like a single line and the sniffer returns false,
+// producing a 415 Unsupported Media Type. With it, we correctly
+// recognize the CSV and the formatter turns it back into a real file.
+func csvLooksLikeCSV(body []byte) bool {
+	// First try: real newlines.
+	if csvLooksLikeCSVWithNewlines(body) {
+		return true
+	}
+
+	// Second try: literal `\n` escapes that should be newlines.
+	if bytes.Contains(body, []byte(`\n`)) {
+		// Replace the literal two-character `\n` sequences with
+		// real newlines, then re-run the same check.
+		unescaped := bytes.ReplaceAll(body, []byte(`\n`), []byte("\n"))
+		if csvLooksLikeCSVWithNewlines(unescaped) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// csvLooksLikeCSVWithNewlines is the core sniff: 2+ non-empty lines
+// that all have the same positive delimiter count.
+func csvLooksLikeCSVWithNewlines(body []byte) bool {
+	lines := strings.Split(strings.ReplaceAll(string(body), "\r\n", "\n"), "\n")
+
+	// Collect up to 10 non-blank lines.
+	var sample []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		sample = append(sample, line)
+		if len(sample) >= 10 {
+			break
+		}
+	}
+	if len(sample) < 2 {
+		return false
+	}
+
+	candidates := []byte{',', ';', '\t'}
+	for _, d := range candidates {
+		firstCount := countDelimiterCSV(sample[0], d)
+		if firstCount == 0 {
+			continue
+		}
+		consistent := true
+		for _, line := range sample[1:] {
+			if countDelimiterCSV(line, d) != firstCount {
+				consistent = false
+				break
+			}
+		}
+		if consistent {
+			return true
+		}
+	}
+	return false
+}
+
+// countDelimiterCSV counts occurrences of delim that are NOT inside
+// double-quoted regions.
+func countDelimiterCSV(line string, delim byte) int {
+	n := 0
+	inQuote := false
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		if c == '"' {
+			// Handle "" escape inside quoted fields.
+			if inQuote && i+1 < len(line) && line[i+1] == '"' {
+				i++
+				continue
+			}
+			inQuote = !inQuote
+			continue
+		}
+		if !inQuote && c == delim {
+			n++
+		}
+	}
+	return n
 }

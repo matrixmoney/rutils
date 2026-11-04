@@ -136,7 +136,7 @@ func TestHTML_DetectFormat(t *testing.T) {
 		{"html tag sniff", "noext", []byte("<html><body></body></html>"), "html"},
 		{"any tag sniff", "noext", []byte("<div>x</div>"), "html"},
 		{"not html", "noext", []byte("this is not html"), ""},
-		{"xml prolog is not html", "noext", []byte(`<?xml version="1.0"?><root/>`), ""},
+		{"xml prolog is not html", "noext", []byte(`<?xml version="1.0"?><root/>`), "xml"},
 	}
 
 	eng := NewEngine()

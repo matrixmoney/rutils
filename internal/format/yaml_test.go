@@ -138,10 +138,10 @@ func TestYAML_DetectFormat(t *testing.T) {
 			want:     "yaml",
 		},
 		{
-			name:     "JSON is not YAML",
+			name:     "JSON is not YAML (goes to json)",
 			filename: "noext",
 			raw:      []byte(`{"key": "value"}`),
-			want:     "",
+			want:     "json",
 		},
 		{
 			name:     "INI section header is not YAML",
