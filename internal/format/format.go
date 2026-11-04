@@ -168,6 +168,18 @@ func NewEngine() *Engine { return &Engine{} }
 // DetectFormat examines the filename extension and the raw bytes and
 // returns the canonical format name. It returns "" if no format
 // matches, and the caller should then respond with ErrUnsupportedFormat.
+//
+// Sniffing order (from most to least specific):
+//
+//  1. TOML — requires a table header OR 2+ key=value lines with at
+//     least one quoted string value. Very specific: quoted string
+//     values distinguish TOML from INI in practice.
+//  2. INI — a `[section]` header OR 2+ bare key=value lines (no
+//     quoted values). Cannot collide with TOML because TOML runs
+//     first and requires quoted values.
+//  3. YAML — `---` marker OR 2+ `key: value` lines. Cannot collide
+//     with INI because INI requires `=` not `:`.
+//  4. HTML — doctype or `<html` or any tag.
 func (e *Engine) DetectFormat(filename string, raw []byte) string {
 	// 1. Extension
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(filename)), ".")
@@ -176,12 +188,7 @@ func (e *Engine) DetectFormat(filename string, raw []byte) string {
 			return ext
 		}
 		// Some formats have multiple extensions that map to the
-		// same formatter. YAML is the only such case today:
-		// `.yaml` is registered by yamlFormatter, but `.yml` is a
-		// widely used alias that must resolve to the same
-		// formatter. We translate here rather than registering a
-		// second formatter, because the registry keys are unique
-		// canonical names.
+		// same formatter. YAML is the only such case today.
 		if alias, ok := extensionAlias[ext]; ok {
 			return alias
 		}
@@ -193,29 +200,22 @@ func (e *Engine) DetectFormat(filename string, raw []byte) string {
 		return ""
 	}
 
-	// INI content sniff.
+	// TOML content sniff. Runs first because it is the most
+	// specific: it requires quoted string values, which distinguish
+	// it from plain INI files with `=` separators.
+	if isLikelyTOML(body) {
+		return "toml"
+	}
+
+	// INI content sniff. Requires a section header OR 2+ bare
+	// key=value lines (no quoted values — those would have matched
+	// the TOML sniff above).
 	if isLikelyINI(body) {
 		return "ini"
 	}
 
-	// YAML content sniff.
-	//
-	// YAML is one of the hardest formats to sniff reliably, because
-	// almost anything is valid YAML. We use two decisive signals:
-	//
-	//   (a) The document starts with `---` (the YAML document
-	//       marker). This is unambiguous.
-	//   (b) The document contains at least two lines that match
-	//       `key: value` or `key:value` where the key is a plain
-	//       identifier, AND the file does not start with a `{`
-	//       (JSON) and does not start with a `<` (HTML/XML) and did
-	//       not already match the INI sniff.
-	//
-	// We check this AFTER the INI sniff because the INI sniff is
-	// more specific: it requires either a `[section]` header or
-	// at least two `key=value` (equals) lines. Colon-only files are
-	// deliberately excluded from the INI sniff so they fall through
-	// to YAML, which is the correct classification for them.
+	// YAML content sniff. Requires `---` marker OR 2+ `key: value`
+	// lines. Cannot collide with INI because INI requires `=`.
 	if isLikelyYAML(body) {
 		return "yaml"
 	}
@@ -298,6 +298,77 @@ func trimBOMAndSpace(b []byte) []byte {
 }
 
 // -----------------------------------------------------------------------------
+// TOML detection helpers
+// -----------------------------------------------------------------------------
+
+// isLikelyTOML reports whether the leading bytes of body look like a
+// TOML document. See the comment at the call site in DetectFormat.
+//
+// The discriminator is quoted string values: TOML frequently uses
+// them (`key = "value"`), while INI almost never does. A file with
+// `[section]` headers AND quoted values is overwhelmingly TOML.
+func isLikelyTOML(body []byte) bool {
+	// Reject HTML/XML.
+	trimmedStart := bytes.TrimSpace(body)
+	if len(trimmedStart) > 0 && trimmedStart[0] == '<' {
+		return false
+	}
+	// Reject JSON.
+	if len(trimmedStart) > 0 && trimmedStart[0] == '{' {
+		return false
+	}
+
+	lines := strings.Split(string(body), "\n")
+	hasHeader := false
+	quotedKeyValue := 0
+	plainKeyValue := 0
+
+	for _, line := range lines {
+		t := strings.TrimLeft(line, " \t")
+		if t == "" || strings.HasPrefix(t, "#") {
+			continue
+		}
+
+		// Table header — `[name]` or `[[name]]`.
+		if strings.HasPrefix(t, "[") && strings.HasSuffix(t, "]") {
+			hasHeader = true
+			continue
+		}
+
+		// Key-value line.
+		eq := strings.IndexByte(t, '=')
+		if eq <= 0 {
+			continue
+		}
+
+		key := strings.TrimSpace(t[:eq])
+		value := strings.TrimSpace(t[eq+1:])
+		if key == "" {
+			continue
+		}
+
+		// Quoted value?
+		if len(value) > 0 && (value[0] == '"' || value[0] == '\'') {
+			quotedKeyValue++
+		} else {
+			plainKeyValue++
+		}
+	}
+
+	// Signal (a): a table header PLUS at least one quoted value.
+	if hasHeader && quotedKeyValue >= 1 {
+		return true
+	}
+
+	// Signal (b): at least two key-value lines, at least one quoted.
+	if quotedKeyValue >= 1 && (quotedKeyValue+plainKeyValue) >= 2 {
+		return true
+	}
+
+	return false
+}
+
+// -----------------------------------------------------------------------------
 // INI detection helpers
 // -----------------------------------------------------------------------------
 
@@ -322,15 +393,10 @@ func isLikelyINI(body []byte) bool {
 
 	// Pattern (b): at least two lines that match key=value.
 	//
-	// We deliberately do NOT count `key:value` (colon-separated) lines
-	// here. A file made entirely of colon-separated pairs with no
-	// section header and no equals-sign lines is overwhelmingly more
-	// likely to be YAML than INI — the presence of `=` vs `:` is the
-	// single strongest distinguishing signal between the two formats
-	// in practice. Deferring colon-only files to the YAML sniff
-	// prevents real YAML from being silently mangled by the INI
-	// formatter (which would rewrite `key: value` to `key = value`,
-	// changing the effective key name).
+	// We deliberately do NOT count `key:value` (colon-separated)
+	// lines here. A file made entirely of colon-separated pairs
+	// with no section header and no equals-sign lines is
+	// overwhelmingly more likely to be YAML than INI.
 	lines := strings.Split(string(body), "\n")
 	kvCount := 0
 	for _, line := range lines {
@@ -361,9 +427,7 @@ func isLikelyINI(body []byte) bool {
 }
 
 // hasEqualsSeparator reports whether t contains '=' outside of quotes.
-// Used only by isLikelyINI to count key=value lines. Colons are
-// deliberately excluded so that colon-only files are left for the
-// YAML sniff to claim.
+// Used only by isLikelyINI to count key=value lines.
 func hasEqualsSeparator(t string) bool {
 	inQuote := byte(0)
 	for i := 0; i < len(t); i++ {
@@ -415,15 +479,13 @@ func isINISectionHeader(t []byte) bool {
 // isLikelyYAML reports whether the leading bytes of body look like a
 // YAML document. See the comment at the call site in DetectFormat.
 func isLikelyYAML(body []byte) bool {
-	// Reject anything that starts with '<' — that is HTML/XML. YAML
-	// documents can contain '<' but the first non-blank character
-	// cannot be '<' in any realistic YAML file.
+	// Reject HTML/XML.
 	trimmedStart := bytes.TrimSpace(body)
 	if len(trimmedStart) > 0 && trimmedStart[0] == '<' {
 		return false
 	}
 
-	// Reject anything that starts with '{' — that is JSON.
+	// Reject JSON.
 	if len(trimmedStart) > 0 && trimmedStart[0] == '{' {
 		return false
 	}
@@ -437,8 +499,7 @@ func isLikelyYAML(body []byte) bool {
 		}
 	}
 
-	// Pattern (a): YAML document marker `---` at the very start of
-	// the first non-blank line.
+	// Pattern (a): YAML document marker `---` at the very start.
 	if bytes.HasPrefix(trimmedStart, []byte("---")) {
 		rest := trimmedStart[3:]
 		if len(rest) == 0 || rest[0] == '\n' || rest[0] == '\r' || rest[0] == ' ' || rest[0] == '\t' {
@@ -446,8 +507,7 @@ func isLikelyYAML(body []byte) bool {
 		}
 	}
 
-	// Pattern (b): at least two lines that match `key: value` or
-	// `key:value` where key is a plain identifier.
+	// Pattern (b): at least two `key: value` or `key:value` lines.
 	lines := strings.Split(string(body), "\n")
 	kvCount := 0
 	for _, line := range lines {
@@ -472,7 +532,7 @@ func looksLikeYAMLMapping(t string) bool {
 		return false
 	}
 
-	// Quoted key: `"key": value` or `'key': value`
+	// Quoted key.
 	if t[0] == '"' || t[0] == '\'' {
 		close := strings.IndexByte(t[1:], t[0])
 		if close < 0 {
@@ -486,7 +546,6 @@ func looksLikeYAMLMapping(t string) bool {
 	for i := 0; i < len(t); i++ {
 		c := t[i]
 		if c == ':' {
-			// Must not be a URL scheme (`://`).
 			if i+1 < len(t) && t[i+1] == '/' {
 				return false
 			}
