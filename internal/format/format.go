@@ -23,6 +23,7 @@
 package format
 
 import (
+	"bytes"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -185,6 +186,25 @@ func (e *Engine) DetectFormat(filename string, raw []byte) string {
 		return ""
 	}
 
+	// INI content sniff.
+	//
+	// An INI file is identified by one of two patterns:
+	//
+	//   (a) The first non-blank line is a section header: `[name]`.
+	//   (b) The file contains at least two lines that look like
+	//       `key=value` or `key:value`, AND no line starts with `<`
+	//       (which would indicate HTML/XML) and no line starts with
+	//       `{` or `[` followed by a quote or digit (which would
+	//       indicate JSON).
+	//
+	// We check this BEFORE the DOCTYPE/`<html` checks because INI
+	// files cannot start with `<`, and before the generic "any tag
+	// starts with `<`" check because that would otherwise claim
+	// this file as HTML.
+	if isLikelyINI(body) {
+		return "ini"
+	}
+
 	// DOCTYPE
 	lower := body
 	if len(lower) >= 15 && strings.HasPrefix(strings.ToLower(string(lower[:15])), "<!doctype html") {
@@ -260,4 +280,119 @@ func trimBOMAndSpace(b []byte) []byte {
 		}
 	}
 	return b[i:]
+}
+
+// -----------------------------------------------------------------------------
+// INI detection helpers
+// -----------------------------------------------------------------------------
+//
+// These helpers live here (not in ini.go) because DetectFormat needs
+// them, and format.go must not depend on any specific formatter being
+// compiled in. Keeping them format-agnostic means a future format can
+// reuse them without importing ini.go.
+//
+// NOTE: The formatter itself (iniFormatter, iniLineKind, etc.) lives
+// in ini.go. Only the pure detection predicates live here. This keeps
+// the boundary clean: format.go answers "what format is this?", and
+// ini.go answers "how do we format it?".
+
+// isLikelyINI reports whether the leading bytes of body look like an
+// INI document. See the comment at the call site in DetectFormat.
+func isLikelyINI(body []byte) bool {
+	// Reject anything that starts with '<' — that is HTML, XML, or a
+	// processing instruction. INI files never start with '<' outside
+	// of a section name, and section names cannot begin with '<'.
+	firstLine := body
+	if idx := bytes.IndexByte(body, '\n'); idx >= 0 {
+		firstLine = body[:idx]
+	}
+	trimmed := bytes.TrimSpace(firstLine)
+	if len(trimmed) > 0 && trimmed[0] == '<' {
+		return false
+	}
+
+	// Pattern (a): first non-blank line is `[name]`.
+	// We validate the inner characters so a JSON array like `[1,2,3]`
+	// (which also starts with `[`) does not match.
+	if isINISectionHeader(trimmed) {
+		return true
+	}
+
+	// Pattern (b): at least two lines that match key=value or key:value.
+	lines := strings.Split(string(body), "\n")
+	kvCount := 0
+	for _, line := range lines {
+		t := strings.TrimLeft(line, " \t")
+		if t == "" || strings.HasPrefix(t, ";") || strings.HasPrefix(t, "#") ||
+			strings.HasPrefix(t, "[") {
+			continue
+		}
+		// Reject lines starting with `{` — that is JSON.
+		if strings.HasPrefix(t, "{") {
+			return false
+		}
+		// Reject lines starting with `[` followed by `"` or a digit —
+		// that is JSON.
+		if strings.HasPrefix(t, "[") && len(t) > 1 &&
+			(t[1] == '"' || (t[1] >= '0' && t[1] <= '9')) {
+			return false
+		}
+		// Match key=value or key:value.
+		if hasEqColon(t) {
+			kvCount++
+			if kvCount >= 2 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// hasEqColon reports whether t contains '=' or ':' outside of quotes.
+// Used only by isLikelyINI to count key-value-looking lines.
+func hasEqColon(t string) bool {
+	inQuote := byte(0)
+	for i := 0; i < len(t); i++ {
+		c := t[i]
+		if inQuote != 0 {
+			if c == inQuote {
+				inQuote = 0
+			}
+			continue
+		}
+		switch c {
+		case '"', '\'':
+			inQuote = c
+		case '=', ':':
+			return true
+		}
+	}
+	return false
+}
+
+// isINISectionHeader reports whether the single-line input t looks
+// like an INI section header — i.e. `[name]` where `name` contains
+// only letters, digits, dots, underscores, hyphens, or spaces.
+//
+// `[1,2,3]` (JSON array) and `["a","b"]` (JSON string array) are
+// rejected because their contents include commas or quotes.
+func isINISectionHeader(t []byte) bool {
+	if len(t) < 3 || t[0] != '[' || t[len(t)-1] != ']' {
+		return false
+	}
+	inner := t[1 : len(t)-1]
+	if len(inner) == 0 {
+		return false
+	}
+	for _, c := range inner {
+		switch {
+		case c >= 'a' && c <= 'z':
+		case c >= 'A' && c <= 'Z':
+		case c >= '0' && c <= '9':
+		case c == '.' || c == '_' || c == '-' || c == ' ' || c == '\t':
+		default:
+			return false
+		}
+	}
+	return true
 }
