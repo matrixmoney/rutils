@@ -121,6 +121,14 @@ var (
 	registry = map[string]Formatter{}
 )
 
+// extensionAlias maps non-canonical file extensions to the canonical
+// formatter name that handles them. Used by DetectFormat so that
+// e.g. a file named `config.yml` resolves to the `yaml` formatter
+// even though only `yaml` is registered.
+var extensionAlias = map[string]string{
+	"yml": "yaml", // YAML's other conventional extension
+}
+
 // register is called from each format file's init(). Duplicate
 // registrations panic — a duplicate is always a bug, and we want it
 // loud at startup.
@@ -160,23 +168,22 @@ func NewEngine() *Engine { return &Engine{} }
 // DetectFormat examines the filename extension and the raw bytes and
 // returns the canonical format name. It returns "" if no format
 // matches, and the caller should then respond with ErrUnsupportedFormat.
-//
-// Detection rules for HTML:
-//
-//   - extension `.html` or `.htm` → "html" (authoritative)
-//   - content starts with `<!doctype html` (case-insensitive) → "html"
-//   - content starts with `<html` → "html"
-//   - content starts with `<!--` followed by any amount of data and
-//     eventually `<html` on a subsequent line → "html"
-//
-// Extension wins if it names a registered format. Content sniffing is a
-// fallback for extensionless uploads.
 func (e *Engine) DetectFormat(filename string, raw []byte) string {
 	// 1. Extension
 	ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(filename)), ".")
 	if ext != "" {
 		if _, ok := lookup(ext); ok {
 			return ext
+		}
+		// Some formats have multiple extensions that map to the
+		// same formatter. YAML is the only such case today:
+		// `.yaml` is registered by yamlFormatter, but `.yml` is a
+		// widely used alias that must resolve to the same
+		// formatter. We translate here rather than registering a
+		// second formatter, because the registry keys are unique
+		// canonical names.
+		if alias, ok := extensionAlias[ext]; ok {
+			return alias
 		}
 	}
 
@@ -187,22 +194,30 @@ func (e *Engine) DetectFormat(filename string, raw []byte) string {
 	}
 
 	// INI content sniff.
-	//
-	// An INI file is identified by one of two patterns:
-	//
-	//   (a) The first non-blank line is a section header: `[name]`.
-	//   (b) The file contains at least two lines that look like
-	//       `key=value` or `key:value`, AND no line starts with `<`
-	//       (which would indicate HTML/XML) and no line starts with
-	//       `{` or `[` followed by a quote or digit (which would
-	//       indicate JSON).
-	//
-	// We check this BEFORE the DOCTYPE/`<html` checks because INI
-	// files cannot start with `<`, and before the generic "any tag
-	// starts with `<`" check because that would otherwise claim
-	// this file as HTML.
 	if isLikelyINI(body) {
 		return "ini"
+	}
+
+	// YAML content sniff.
+	//
+	// YAML is one of the hardest formats to sniff reliably, because
+	// almost anything is valid YAML. We use two decisive signals:
+	//
+	//   (a) The document starts with `---` (the YAML document
+	//       marker). This is unambiguous.
+	//   (b) The document contains at least two lines that match
+	//       `key: value` or `key:value` where the key is a plain
+	//       identifier, AND the file does not start with a `{`
+	//       (JSON) and does not start with a `<` (HTML/XML) and did
+	//       not already match the INI sniff.
+	//
+	// We check this AFTER the INI sniff because the INI sniff is
+	// more specific: it requires either a `[section]` header or
+	// at least two `key=value` (equals) lines. Colon-only files are
+	// deliberately excluded from the INI sniff so they fall through
+	// to YAML, which is the correct classification for them.
+	if isLikelyYAML(body) {
+		return "yaml"
 	}
 
 	// DOCTYPE
@@ -285,23 +300,12 @@ func trimBOMAndSpace(b []byte) []byte {
 // -----------------------------------------------------------------------------
 // INI detection helpers
 // -----------------------------------------------------------------------------
-//
-// These helpers live here (not in ini.go) because DetectFormat needs
-// them, and format.go must not depend on any specific formatter being
-// compiled in. Keeping them format-agnostic means a future format can
-// reuse them without importing ini.go.
-//
-// NOTE: The formatter itself (iniFormatter, iniLineKind, etc.) lives
-// in ini.go. Only the pure detection predicates live here. This keeps
-// the boundary clean: format.go answers "what format is this?", and
-// ini.go answers "how do we format it?".
 
 // isLikelyINI reports whether the leading bytes of body look like an
 // INI document. See the comment at the call site in DetectFormat.
 func isLikelyINI(body []byte) bool {
 	// Reject anything that starts with '<' — that is HTML, XML, or a
-	// processing instruction. INI files never start with '<' outside
-	// of a section name, and section names cannot begin with '<'.
+	// processing instruction.
 	firstLine := body
 	if idx := bytes.IndexByte(body, '\n'); idx >= 0 {
 		firstLine = body[:idx]
@@ -312,13 +316,21 @@ func isLikelyINI(body []byte) bool {
 	}
 
 	// Pattern (a): first non-blank line is `[name]`.
-	// We validate the inner characters so a JSON array like `[1,2,3]`
-	// (which also starts with `[`) does not match.
 	if isINISectionHeader(trimmed) {
 		return true
 	}
 
-	// Pattern (b): at least two lines that match key=value or key:value.
+	// Pattern (b): at least two lines that match key=value.
+	//
+	// We deliberately do NOT count `key:value` (colon-separated) lines
+	// here. A file made entirely of colon-separated pairs with no
+	// section header and no equals-sign lines is overwhelmingly more
+	// likely to be YAML than INI — the presence of `=` vs `:` is the
+	// single strongest distinguishing signal between the two formats
+	// in practice. Deferring colon-only files to the YAML sniff
+	// prevents real YAML from being silently mangled by the INI
+	// formatter (which would rewrite `key: value` to `key = value`,
+	// changing the effective key name).
 	lines := strings.Split(string(body), "\n")
 	kvCount := 0
 	for _, line := range lines {
@@ -337,8 +349,8 @@ func isLikelyINI(body []byte) bool {
 			(t[1] == '"' || (t[1] >= '0' && t[1] <= '9')) {
 			return false
 		}
-		// Match key=value or key:value.
-		if hasEqColon(t) {
+		// Match key=value only (equals, not colon).
+		if hasEqualsSeparator(t) {
 			kvCount++
 			if kvCount >= 2 {
 				return true
@@ -348,9 +360,11 @@ func isLikelyINI(body []byte) bool {
 	return false
 }
 
-// hasEqColon reports whether t contains '=' or ':' outside of quotes.
-// Used only by isLikelyINI to count key-value-looking lines.
-func hasEqColon(t string) bool {
+// hasEqualsSeparator reports whether t contains '=' outside of quotes.
+// Used only by isLikelyINI to count key=value lines. Colons are
+// deliberately excluded so that colon-only files are left for the
+// YAML sniff to claim.
+func hasEqualsSeparator(t string) bool {
 	inQuote := byte(0)
 	for i := 0; i < len(t); i++ {
 		c := t[i]
@@ -363,7 +377,7 @@ func hasEqColon(t string) bool {
 		switch c {
 		case '"', '\'':
 			inQuote = c
-		case '=', ':':
+		case '=':
 			return true
 		}
 	}
@@ -373,9 +387,6 @@ func hasEqColon(t string) bool {
 // isINISectionHeader reports whether the single-line input t looks
 // like an INI section header — i.e. `[name]` where `name` contains
 // only letters, digits, dots, underscores, hyphens, or spaces.
-//
-// `[1,2,3]` (JSON array) and `["a","b"]` (JSON string array) are
-// rejected because their contents include commas or quotes.
 func isINISectionHeader(t []byte) bool {
 	if len(t) < 3 || t[0] != '[' || t[len(t)-1] != ']' {
 		return false
@@ -395,4 +406,95 @@ func isINISectionHeader(t []byte) bool {
 		}
 	}
 	return true
+}
+
+// -----------------------------------------------------------------------------
+// YAML detection helpers
+// -----------------------------------------------------------------------------
+
+// isLikelyYAML reports whether the leading bytes of body look like a
+// YAML document. See the comment at the call site in DetectFormat.
+func isLikelyYAML(body []byte) bool {
+	// Reject anything that starts with '<' — that is HTML/XML. YAML
+	// documents can contain '<' but the first non-blank character
+	// cannot be '<' in any realistic YAML file.
+	trimmedStart := bytes.TrimSpace(body)
+	if len(trimmedStart) > 0 && trimmedStart[0] == '<' {
+		return false
+	}
+
+	// Reject anything that starts with '{' — that is JSON.
+	if len(trimmedStart) > 0 && trimmedStart[0] == '{' {
+		return false
+	}
+
+	// Reject JSON arrays: `[1,2,3]` or `["a","b"]`.
+	if len(trimmedStart) > 1 && trimmedStart[0] == '[' {
+		inner := trimmedStart[1]
+		if inner == '"' || inner == ']' || (inner >= '0' && inner <= '9') ||
+			inner == '{' || inner == 't' || inner == 'f' || inner == 'n' {
+			return false
+		}
+	}
+
+	// Pattern (a): YAML document marker `---` at the very start of
+	// the first non-blank line.
+	if bytes.HasPrefix(trimmedStart, []byte("---")) {
+		rest := trimmedStart[3:]
+		if len(rest) == 0 || rest[0] == '\n' || rest[0] == '\r' || rest[0] == ' ' || rest[0] == '\t' {
+			return true
+		}
+	}
+
+	// Pattern (b): at least two lines that match `key: value` or
+	// `key:value` where key is a plain identifier.
+	lines := strings.Split(string(body), "\n")
+	kvCount := 0
+	for _, line := range lines {
+		t := strings.TrimLeft(line, " \t")
+		if t == "" || strings.HasPrefix(t, "#") || strings.HasPrefix(t, "-") {
+			continue
+		}
+		if looksLikeYAMLMapping(t) {
+			kvCount++
+			if kvCount >= 2 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// looksLikeYAMLMapping reports whether t starts with a plausible
+// YAML mapping key followed by ':'.
+func looksLikeYAMLMapping(t string) bool {
+	if t == "" {
+		return false
+	}
+
+	// Quoted key: `"key": value` or `'key': value`
+	if t[0] == '"' || t[0] == '\'' {
+		close := strings.IndexByte(t[1:], t[0])
+		if close < 0 {
+			return false
+		}
+		after := t[1+close+1:]
+		return strings.HasPrefix(after, ":")
+	}
+
+	// Bare key: scan to the first ':' or whitespace.
+	for i := 0; i < len(t); i++ {
+		c := t[i]
+		if c == ':' {
+			// Must not be a URL scheme (`://`).
+			if i+1 < len(t) && t[i+1] == '/' {
+				return false
+			}
+			return i > 0
+		}
+		if c == ' ' || c == '\t' {
+			return false
+		}
+	}
+	return false
 }

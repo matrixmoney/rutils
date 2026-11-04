@@ -1,4 +1,4 @@
- package format
+package format
 
 import (
 	"strings"
@@ -8,8 +8,6 @@ import (
 // -----------------------------------------------------------------------
 // Test 1: canonical input → unchanged
 // -----------------------------------------------------------------------
-// A document that is already in the formatter's canonical shape must
-// come back byte-for-byte identical, with Changed=false.
 func TestINI_AlreadyCanonical(t *testing.T) {
 	in := []byte(`[server]
 host = localhost
@@ -36,8 +34,6 @@ user = admin
 // -----------------------------------------------------------------------
 // Test 2: messy but parseable → formatted
 // -----------------------------------------------------------------------
-// A file with colon separators, inconsistent spacing, and extra blank
-// lines should be rewritten into the canonical form.
 func TestINI_MessyButParseable(t *testing.T) {
 	in := []byte(`[server]
 host:localhost
@@ -59,7 +55,6 @@ user : admin
 
 	s := string(out)
 
-	// Every key-value pair must use the canonical `key = value` form.
 	if !strings.Contains(s, "host = localhost") {
 		t.Fatalf("expected 'host = localhost', got:\n%s", s)
 	}
@@ -72,13 +67,9 @@ user : admin
 	if !strings.Contains(s, "user = admin") {
 		t.Fatalf("expected 'user = admin', got:\n%s", s)
 	}
-
-	// No double blank lines.
 	if strings.Contains(s, "\n\n\n") {
 		t.Fatalf("blank lines not collapsed:\n%s", s)
 	}
-
-	// Sections preserved in order.
 	if !strings.Contains(s, "[server]") || !strings.Contains(s, "[database]") {
 		t.Fatalf("sections not preserved:\n%s", s)
 	}
@@ -87,8 +78,6 @@ user : admin
 // -----------------------------------------------------------------------
 // Test 3: garbage input → returns, with a warning
 // -----------------------------------------------------------------------
-// A file with a line that is not a comment, section, or key-value
-// must still return the line verbatim plus a warning. No error.
 func TestINI_BrokenInputStillProducesOutput(t *testing.T) {
 	in := []byte(`[section]
 key = value
@@ -109,13 +98,9 @@ another = one
 	if len(report.Warnings) == 0 {
 		t.Fatalf("expected at least one warning; report=%+v", report)
 	}
-
-	// The garbage line must be preserved verbatim.
 	if !strings.Contains(string(out), "this line is not valid INI at all") {
 		t.Fatalf("garbage line was dropped:\n%s", out)
 	}
-
-	// The warning must mention the line number.
 	hasLineWarning := false
 	for _, w := range report.Warnings {
 		if strings.Contains(w, "line 3") {
@@ -157,10 +142,15 @@ func TestINI_DetectFormat(t *testing.T) {
 			want:     "ini",
 		},
 		{
-			name:     "sniff: two key:value lines, no section",
+			// Changed: colon-only files are now YAML, not INI. The
+			// INI sniff deliberately defers them so that real YAML
+			// (which overwhelmingly uses `:`) is not misidentified
+			// and mangled. See the comment on isLikelyINI in
+			// format.go for the full rationale.
+			name:     "sniff: two key:value lines, no section, defers to YAML",
 			filename: "noext",
 			raw:      []byte("host: localhost\nport: 8080\n"),
-			want:     "ini",
+			want:     "yaml",
 		},
 		{
 			name:     "JSON array is not INI",
