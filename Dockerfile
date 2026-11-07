@@ -13,10 +13,14 @@ RUN npm run build
 # ==============================================================================
 FROM golang:alpine AS backend-builder
 WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server/main.go
+RUN if [ -d "vendor" ]; then \
+        CGO_ENABLED=0 GOOS=linux go build -mod=vendor -o server ./cmd/server/main.go; \
+    else \
+        apk add --no-cache git ca-certificates && \
+        go mod download && \
+        CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server/main.go; \
+    fi
 
 # ==============================================================================
 # Stage 3: Runtime image — high-fidelity conversion toolchain

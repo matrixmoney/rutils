@@ -1,0 +1,15 @@
+services:
+  rutils-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rutils-local
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PORT=8080
+      - UI_PORT=3000
