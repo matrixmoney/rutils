@@ -18,6 +18,13 @@ export interface Task {
   due_date: string;   // YYYY-MM-DD
   created_at: string; // RFC3339
   updated_at: string; // RFC3339
+
+  // ── Reminder fields (new) ─────────────────────────────────
+  reminder_enabled: boolean;
+  reminder_start_date: string;
+  reminder_time: string;
+  reminder_timezone: string;
+  last_reminder_sent_at?: string;
 }
 
 export interface TasksListResponse {
@@ -34,16 +41,27 @@ export interface TaskResponse {
 export interface TaskMessageResponse {
   success: boolean;
   message: string;
-  /**
-   * Whether the delete-notification email was dispatched.
-   * Present on DELETE /tasks/{id} responses since the send_email
-   * feature was added. Older servers may omit it — callers should
-   * treat `undefined` as `false`.
-   */
   email_sent?: boolean;
 }
 
-// ─── API base resolution (mirrors auth.ts / formatters.ts) ─
+export interface ReminderFields {
+  reminder_enabled?: boolean;
+  reminder_start_date?: string; // YYYY-MM-DD, or "" to reset
+  reminder_time?: string;       // "HH:MM", or "" to reset
+  reminder_timezone?: string;   // IANA, or "" to reset
+}
+
+// ─── Custom Error Class ─────────────────────────────────────
+// This allows the UI layer to specifically catch 401 Unauthorized 
+// errors and prompt the user to log in, rather than failing silently.
+export class UnauthorizedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnauthorizedError';
+  }
+}
+
+// ─── API base resolution ────────────────────────────────────
 
 function resolveBase(): string {
   const isLocal =
@@ -64,7 +82,11 @@ function authHeaders(token?: string): HeadersInit {
 async function unwrap<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
+    const msg = (data as { error?: string }).error ?? `Request failed (${res.status})`;
+    if (res.status === 401) {
+      throw new UnauthorizedError(msg);
+    }
+    throw new Error(msg);
   }
   return data as T;
 }
@@ -73,54 +95,49 @@ async function unwrap<T>(res: Response): Promise<T> {
 
 /** GET /tasks — every task owned by the caller, newest first. */
 export async function fetchTasks(token?: string): Promise<TasksListResponse> {
-  return apiGet<TasksListResponse>('/tasks', token);
+  try {
+    return await apiGet<TasksListResponse>('/tasks', token);
+  } catch (err: any) {
+    // apiGet from auth.ts throws a generic Error. We intercept it
+    // here to see if it was a 401, so we can throw our custom class.
+    if (err.message && err.message.includes('Unauthorized')) {
+       throw new UnauthorizedError(err.message);
+    }
+    throw err;
+  }
 }
 
 /**
  * POST /tasks — creates a new task owned by the caller.
- *
- * @param sendEmail When true, the server dispatches a "Task Created"
- *                  confirmation email. When false, the save is silent.
- *
- *                  Default: `true`. Matches the pre-flag frontend
- *                  behaviour (the old single SEND button always
- *                  emailed on create), and matches the server's
- *                  `nil → email` default for POST /tasks.
- *
- *                  The "Add" button passes `false`.
- *                  The "Email" button passes `true`.
  */
 export async function createTask(
   text: string,
   dueDate: string,
   token?: string,
   sendEmail: boolean = true,
+  reminder: ReminderFields = {},
 ): Promise<TaskResponse> {
+  const payload: Record<string, unknown> = {
+    text,
+    due_date: dueDate,
+    send_email: sendEmail,
+  };
+
+  if ('reminder_enabled' in reminder) payload['reminder_enabled'] = reminder.reminder_enabled;
+  if ('reminder_start_date' in reminder) payload['reminder_start_date'] = reminder.reminder_start_date;
+  if ('reminder_time' in reminder) payload['reminder_time'] = reminder.reminder_time;
+  if ('reminder_timezone' in reminder) payload['reminder_timezone'] = reminder.reminder_timezone;
+
   const res = await fetch(`${resolveBase()}/tasks`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({
-      text,
-      due_date: dueDate,
-      send_email: sendEmail,
-    }),
+    body: JSON.stringify(payload),
   });
   return unwrap<TaskResponse>(res);
 }
 
 /**
  * PUT /tasks/{id} — updates an existing task owned by the caller.
- *
- * @param sendEmail When true, the server dispatches a "Task Updated"
- *                  email showing the before/after diff. When false,
- *                  the save is silent.
- *
- *                  Default: `false`. Matches the pre-flag frontend
- *                  behaviour (updates never used to email) and the
- *                  server's `nil → silent` default for PUT /tasks/{id}.
- *
- *                  The "Update" button passes `false`.
- *                  The "Email" button passes `true`.
  */
 export async function updateTask(
   id: string,
@@ -128,39 +145,29 @@ export async function updateTask(
   dueDate: string,
   token?: string,
   sendEmail: boolean = false,
+  reminder: ReminderFields = {},
 ): Promise<TaskResponse> {
+  const payload: Record<string, unknown> = {
+    text,
+    due_date: dueDate,
+    send_email: sendEmail,
+  };
+
+  if ('reminder_enabled' in reminder) payload['reminder_enabled'] = reminder.reminder_enabled;
+  if ('reminder_start_date' in reminder) payload['reminder_start_date'] = reminder.reminder_start_date;
+  if ('reminder_time' in reminder) payload['reminder_time'] = reminder.reminder_time;
+  if ('reminder_timezone' in reminder) payload['reminder_timezone'] = reminder.reminder_timezone;
+
   const res = await fetch(`${resolveBase()}/tasks/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: authHeaders(token),
-    body: JSON.stringify({
-      text,
-      due_date: dueDate,
-      send_email: sendEmail,
-    }),
+    body: JSON.stringify(payload),
   });
   return unwrap<TaskResponse>(res);
 }
 
 /**
  * DELETE /tasks/{id} — removes a task owned by the caller.
- *
- * @param sendEmail When true, the server dispatches a "Task Deleted"
- *                  email showing what was removed. When false, the
- *                  delete is silent.
- *
- *                  Default: `true`. Delete is destructive — if the
- *                  user's account is ever compromised, we want an
- *                  email trail of what disappeared. Matches the
- *                  server's `absent → email` default for DELETE.
- *
- *                  The frontend delete flow passes `true` explicitly
- *                  (currently there is no "silent delete" button in
- *                  the UI — this parameter exists for future use
- *                  and for direct API consumers).
- *
- * The `send_email` flag goes in the QUERY STRING for DELETE — some
- * proxies / HTTP clients strip request bodies on DELETE, so the
- * handler reads it from the query.
  */
 export async function deleteTask(
   id: string,
@@ -182,23 +189,6 @@ export async function deleteTask(
 
 export type ExportFormat = 'csv' | 'json';
 
-/**
- * Serialise the given tasks to a downloadable Blob in the requested
- * format. The caller (tasks-ui.ts) passes `allTasks`, which is
- * already user-scoped by the backend — so the export is automatically
- * user-scoped for free.
- *
- * CSV rules:
- *  - header row: id,text,due_date,created_at,updated_at
- *  - cells are RFC 4180 quoted (double quotes escaped as "")
- *  - a leading ' = + - @ in any cell is prefixed with ' to prevent
- *    spreadsheet formula injection (OWASP recommendation)
- *  - line endings are \r\n (RFC 4180 compliance)
- *
- * JSON rules:
- *  - a plain array of the task objects as returned by the API
- *  - pretty-printed with 2-space indentation
- */
 export function exportTasks(tasks: Task[], format: ExportFormat): Blob {
   if (format === 'json') {
     const payload = JSON.stringify(tasks, null, 2);
@@ -222,35 +212,18 @@ export function exportTasks(tasks: Task[], format: ExportFormat): Blob {
     );
   }
 
-  // \r\n is what Excel and Google Sheets expect for CSV.
   const body = rows.join('\r\n') + '\r\n';
   return new Blob([body], { type: 'text/csv;charset=utf-8' });
 }
 
-/**
- * RFC 4180-compliant CSV escaping + spreadsheet formula-injection
- * mitigation. A cell is wrapped in double quotes and any internal
- * double quote is doubled. Cells whose first non-whitespace
- * character is one of = + - @ are prefixed with a single quote so
- * that Excel/Sheets treat them as text, not formulas.
- */
 function csvEscape(value: string): string {
   let v = value ?? '';
-
-  // Formula-injection guard: only matters for the very first
-  // character. Prefix with ' if it is one of the risky openers.
   if (/^[=+\-@]/.test(v)) {
     v = "'" + v;
   }
-
-  // Always wrap in quotes for maximum compatibility.
   return '"' + v.replace(/"/g, '""') + '"';
 }
 
-/**
- * Trigger a browser download of `blob` with the given filename.
- * Kept here so callers don't need to duplicate the anchor dance.
- */
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

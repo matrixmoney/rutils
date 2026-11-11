@@ -57,7 +57,7 @@ func resolveSendEmail(flag *bool, defaultWhenNil bool) bool {
 // List returns only the caller's tasks.
 //
 // @Summary      List all tasks
-// @Description  Returns every task OWNED BY THE AUTHENTICATED USER, newest first. Requires Bearer JWT. Tasks belonging to other users are never returned.
+// @Description  Returns every task OWNED BY THE AUTHENTICATED USER, newest first. Requires Bearer JWT. Tasks belonging to other users are never returned. Each task carries its own reminder schedule (reminder_enabled, reminder_start_date, reminder_time, reminder_timezone, last_reminder_sent_at).
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Produce      json
@@ -103,8 +103,32 @@ func (h *TasksHandler) List(w http.ResponseWriter, r *http.Request) {
 // The task is always saved. A failed email dispatch does NOT turn the
 // response into an error — it only flips email_sent to false.
 //
+// ──────────────────────────────────────────────────────────────────
+// Reminder fields (new)
+// ──────────────────────────────────────────────────────────────────
+//
+// Every task carries a per-task reminder schedule. All reminder fields
+// are optional in the request body. Missing fields get safe defaults
+// applied by the service layer:
+//
+//	reminder_enabled    omitted → true
+//	                    true    → scheduler WILL email this task
+//	                    false   → scheduler will NOT email it
+//
+//	reminder_start_date omitted → the task's due_date
+//	                    "YYYY-MM-DD" → first reminder day
+//
+//	reminder_time       omitted → "08:00"
+//	                    "HH:MM" → time-of-day to fire, every day
+//
+//	reminder_timezone   omitted → "Asia/Kolkata"
+//	                    "IANA name" → the zone in which start+time are interpreted
+//
+// The scheduler emails the task daily from reminder_start_date @
+// reminder_time until the task is DELETED. There is no due-date stop.
+//
 // @Summary      Create a task
-// @Description  Creates a new task owned by the authenticated user. The owner is derived from the JWT — the client cannot set it. On success, a confirmation email is dispatched to the user's email address when `send_email` is true (default when omitted). EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome.
+// @Description  Creates a new task owned by the authenticated user. The owner is derived from the JWT — the client cannot set it. On success, a confirmation email is dispatched to the user's email address when `send_email` is true (default when omitted). EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome. Each task also carries an independent reminder schedule (see `CreateTaskRequest`): the scheduler will email the task daily from `reminder_start_date` at `reminder_time` (in `reminder_timezone`) until the task is deleted.
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Accept       json
@@ -133,8 +157,20 @@ func (h *TasksHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.service.Create(claims.UserID, req.Text, req.DueDate)
+	task, err := h.service.Create(
+		claims.UserID,
+		req.Text,
+		req.DueDate,
+		req.ReminderEnabled,
+		req.ReminderStartDate,
+		req.ReminderTime,
+		req.ReminderTimezone,
+	)
 	if err != nil {
+		// mapTaskError translates every reminder-related error into a
+		// human-readable message, so the client sees exactly what
+		// field failed and why (e.g. "reminder_time must be in HH:MM
+		// 24-hour format").
 		writeTasksError(w, http.StatusBadRequest, mapTaskError(err))
 		return
 	}
@@ -325,8 +361,23 @@ func (h *TasksHandler) dispatchTaskDeletedEmail(
 // loaded server-side before the edit is applied — the client cannot
 // forge them.
 //
+// ──────────────────────────────────────────────────────────────────
+// Reminder fields (new)
+// ──────────────────────────────────────────────────────────────────
+//
+// Each reminder field is tri-state on PUT:
+//
+//	omitted in the body     → keep the task's current stored value
+//	sent as ""              → reset to the standard default
+//	                          (due_date / "08:00" / "Asia/Kolkata")
+//	sent as a non-empty     → replace the stored value
+//
+// This tri-state is expressed by the *bool / *string pointer types on
+// UpdateTaskRequest. The service layer enforces the "reminder_start_date
+// ≤ due_date" rule against the post-update values.
+//
 // @Summary      Update a task
-// @Description  Updates the text and due date of a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from "not found" — no information leak). Requires Bearer JWT. When `send_email` is true, an "updated" email is dispatched showing the before/after diff. `email_sent` reflects whether the dispatch succeeded. The task is saved regardless of email outcome.
+// @Description  Updates the text and due date of a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from "not found" — no information leak). Requires Bearer JWT. When `send_email` is true, an "updated" email is dispatched showing the before/after diff. `email_sent` reflects whether the dispatch succeeded. The task is saved regardless of email outcome. Reminder fields are tri-state: omitted → keep current value; sent as "" → reset to default; sent with a value → replace.
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Accept       json
@@ -377,7 +428,14 @@ func (h *TasksHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := h.service.Update(claims.UserID, id, req.Text, req.DueDate)
+	updated, err := h.service.Update(
+		claims.UserID, id,
+		req.Text, req.DueDate,
+		req.ReminderEnabled,
+		req.ReminderStartDate,
+		req.ReminderTime,
+		req.ReminderTimezone,
+	)
 	if err != nil {
 		if errors.Is(err, tasks.ErrTaskNotFound) {
 			writeTasksError(w, http.StatusNotFound, "Task not found")
@@ -420,8 +478,10 @@ func (h *TasksHandler) Update(w http.ResponseWriter, r *http.Request) {
 // The email shows the text and due date of the deleted task so the
 // user has a record of what was removed.
 //
+// Deleting the task is the ONLY way to stop its daily reminder.
+//
 // @Summary      Delete a task
-// @Description  Deletes a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from "not found" — no information leak). Requires Bearer JWT. A "deleted" email is dispatched by default (pass ?send_email=false to suppress it). `email_sent` reflects whether the dispatch succeeded. The task is deleted regardless of email outcome.
+// @Description  Deletes a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from "not found" — no information leak). Requires Bearer JWT. A "deleted" email is dispatched by default (pass ?send_email=false to suppress it). `email_sent` reflects whether the dispatch succeeded. The task is deleted regardless of email outcome. Deleting the task is the only way to stop its daily reminder emails — there is no due-date or end-date stop in the reminder model.
 // @Tags         Tasks
 // @Security     BearerAuth
 // @Produce      json
@@ -518,6 +578,11 @@ func resolveDeleteSendEmail(raw string) bool {
 }
 
 // mapTaskError translates service errors into human-readable messages.
+//
+// This is the single place where the newly-added reminder validation
+// errors are turned into strings the client can act on. Every error is
+// mapped to a specific, actionable message — no generic "bad request"
+// fallbacks for the reminder fields.
 func mapTaskError(err error) string {
 	switch {
 	case errors.Is(err, tasks.ErrEmptyText):
@@ -530,6 +595,17 @@ func mapTaskError(err error) string {
 		return "Due date must be a valid YYYY-MM-DD date"
 	case errors.Is(err, tasks.ErrTaskNotFound):
 		return "Task not found"
+
+	// ── Reminder validation errors (new) ────────────────────────
+	case errors.Is(err, tasks.ErrInvalidReminderStartDate):
+		return "Reminder start date must be a valid YYYY-MM-DD date"
+	case errors.Is(err, tasks.ErrReminderStartAfterDue):
+		return "Reminder start date cannot be after the due date"
+	case errors.Is(err, tasks.ErrInvalidReminderTime):
+		return "Reminder time must be in HH:MM 24-hour format (e.g. 08:00, 20:30)"
+	case errors.Is(err, tasks.ErrInvalidReminderTimezone):
+		return "Reminder timezone must be a valid IANA timezone name (e.g. Asia/Kolkata, America/New_York)"
+
 	default:
 		return err.Error()
 	}

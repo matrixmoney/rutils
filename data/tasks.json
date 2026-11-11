@@ -6,7 +6,11 @@
       "text": "today is going summa",
       "due_date": "2026-10-22",
       "created_at": "2026-10-22T09:37:30.808951868Z",
-      "updated_at": "2026-10-22T09:37:30.808951868Z"
+      "updated_at": "2026-10-22T09:37:30.808951868Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-10-22",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
     },
     {
       "id": "tsk_eea077a50461224e",
@@ -14,7 +18,11 @@
       "text": "SMTP proof-of-life test",
       "due_date": "2026-11-05",
       "created_at": "2026-10-22T12:27:37.538947297Z",
-      "updated_at": "2026-10-22T12:27:37.538947297Z"
+      "updated_at": "2026-10-22T12:27:37.538947297Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
     },
     {
       "id": "tsk_fa9a6b8187426af0",
@@ -22,7 +30,11 @@
       "text": "SMTP diagnostic test from Ramesh",
       "due_date": "2026-11-05",
       "created_at": "2026-10-22T13:00:18.113857645Z",
-      "updated_at": "2026-10-22T13:00:18.113857645Z"
+      "updated_at": "2026-10-22T13:00:18.113857645Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
     },
     {
       "id": "tsk_dadf24d60db4e196",
@@ -30,7 +42,11 @@
       "text": "to check the task bar is working are not??",
       "due_date": "2026-10-22",
       "created_at": "2026-10-22T13:12:42.249347539Z",
-      "updated_at": "2026-10-22T13:12:42.249347539Z"
+      "updated_at": "2026-10-22T13:12:42.249347539Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-10-22",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
     },
     {
       "id": "tsk_2b198ae1a2801ff4",
@@ -38,7 +54,11 @@
       "text": "hello ii am new to the rutils.",
       "due_date": "2026-10-23",
       "created_at": "2026-10-23T07:06:24.666453898Z",
-      "updated_at": "2026-10-23T07:06:24.666453898Z"
+      "updated_at": "2026-10-23T07:06:24.666453898Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-10-23",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
     },
     {
       "id": "tsk_f862bc216c42e751",
@@ -46,7 +66,12 @@
       "text": "Ownership check",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:04.468896763Z",
-      "updated_at": "2026-10-23T08:47:04.468896763Z"
+      "updated_at": "2026-10-23T08:47:04.468896763Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_fba9b487bcf87bc9",
@@ -54,7 +79,12 @@
       "text": "Forgery attempt",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:10.307123089Z",
-      "updated_at": "2026-10-23T08:47:10.307123089Z"
+      "updated_at": "2026-10-23T08:47:10.307123089Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_095098a0bcf7aef1",
@@ -62,7 +92,12 @@
       "text": "First task",
       "due_date": "2026-11-01",
       "created_at": "2026-10-23T08:47:10.60381539Z",
-      "updated_at": "2026-10-23T08:47:10.60381539Z"
+      "updated_at": "2026-10-23T08:47:10.60381539Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-01",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_6b026805ae0dbfde",
@@ -70,7 +105,12 @@
       "text": "Second task",
       "due_date": "2026-11-02",
       "created_at": "2026-10-23T08:47:15.433662326Z",
-      "updated_at": "2026-10-23T08:47:15.433662326Z"
+      "updated_at": "2026-10-23T08:47:15.433662326Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-02",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_f33f5d6f63bcbf73",
@@ -78,7 +118,12 @@
       "text": "Shape check",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:16.19465232Z",
-      "updated_at": "2026-10-23T08:47:16.19465232Z"
+      "updated_at": "2026-10-23T08:47:16.19465232Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_cca6b985fb058f44",
@@ -86,7 +131,11 @@
       "text": "Persisted note",
       "due_date": "2026-12-01",
       "created_at": "2026-10-23T08:47:23.901637446Z",
-      "updated_at": "2026-10-23T08:47:23.901637446Z"
+      "updated_at": "2026-10-23T08:47:23.901637446Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-01",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
     },
     {
       "id": "tsk_0bae4fe77e401f96",
@@ -94,7 +143,12 @@
       "text": "Alice's private note",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:24.420102436Z",
-      "updated_at": "2026-10-23T08:47:24.420102436Z"
+      "updated_at": "2026-10-23T08:47:24.420102436Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_5baba8d9751018c9",
@@ -102,7 +156,12 @@
       "text": "Alice #1",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:30.217032689Z",
-      "updated_at": "2026-10-23T08:47:30.217032689Z"
+      "updated_at": "2026-10-23T08:47:30.217032689Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_d98edcc0936b2a82",
@@ -110,7 +169,12 @@
       "text": "Do not delete me",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:31.198742159Z",
-      "updated_at": "2026-10-23T08:47:31.198742159Z"
+      "updated_at": "2026-10-23T08:47:31.198742159Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_0d5cbe4b4ef36c1d",
@@ -118,7 +182,12 @@
       "text": "Bob #1",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:34.766114348Z",
-      "updated_at": "2026-10-23T08:47:34.766114348Z"
+      "updated_at": "2026-10-23T08:47:34.766114348Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_1c1380947589cc8d",
@@ -126,7 +195,12 @@
       "text": "Original text",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:37.526588532Z",
-      "updated_at": "2026-10-23T08:47:37.526588532Z"
+      "updated_at": "2026-10-23T08:47:37.526588532Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_b6002b5d1c4e5868",
@@ -134,7 +208,12 @@
       "text": "Alice #2",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:39.684669343Z",
-      "updated_at": "2026-10-23T08:47:39.684669343Z"
+      "updated_at": "2026-10-23T08:47:39.684669343Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_8898621d94b2dc21",
@@ -142,7 +221,12 @@
       "text": "Only Alice sees this",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:44.047619966Z",
-      "updated_at": "2026-10-23T08:47:44.047619966Z"
+      "updated_at": "2026-10-23T08:47:44.047619966Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_f1a89c0066024416",
@@ -150,7 +234,12 @@
       "text": "Bob #2",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T08:47:44.183990159Z",
-      "updated_at": "2026-10-23T08:47:44.183990159Z"
+      "updated_at": "2026-10-23T08:47:44.183990159Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_d32b449b19c08ef7",
@@ -158,7 +247,12 @@
       "text": "Ownership check",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:13.465285767Z",
-      "updated_at": "2026-10-23T12:50:13.465285767Z"
+      "updated_at": "2026-10-23T12:50:13.465285767Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_ef04406ac412491a",
@@ -166,7 +260,12 @@
       "text": "Forgery attempt",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:18.866028983Z",
-      "updated_at": "2026-10-23T12:50:18.866028983Z"
+      "updated_at": "2026-10-23T12:50:18.866028983Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_d9f7ef82c6575dbd",
@@ -174,7 +273,12 @@
       "text": "First task",
       "due_date": "2026-11-01",
       "created_at": "2026-10-23T12:50:24.271679101Z",
-      "updated_at": "2026-10-23T12:50:24.271679101Z"
+      "updated_at": "2026-10-23T12:50:24.271679101Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-01",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_4fd039c7bd6cc28a",
@@ -182,7 +286,12 @@
       "text": "Shape check",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:25.288220792Z",
-      "updated_at": "2026-10-23T12:50:25.288220792Z"
+      "updated_at": "2026-10-23T12:50:25.288220792Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_b599dcd21fd8bf47",
@@ -190,7 +299,12 @@
       "text": "Second task",
       "due_date": "2026-11-02",
       "created_at": "2026-10-23T12:50:29.733417386Z",
-      "updated_at": "2026-10-23T12:50:29.733417386Z"
+      "updated_at": "2026-10-23T12:50:29.733417386Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-02",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_7acda2cfdf5fcc2c",
@@ -198,7 +312,11 @@
       "text": "Persisted note",
       "due_date": "2026-12-01",
       "created_at": "2026-10-23T12:50:34.89123875Z",
-      "updated_at": "2026-10-23T12:50:34.89123875Z"
+      "updated_at": "2026-10-23T12:50:34.89123875Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-01",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
     },
     {
       "id": "tsk_28bf8b8702cda625",
@@ -206,7 +324,12 @@
       "text": "Alice's private note",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:35.165632094Z",
-      "updated_at": "2026-10-23T12:50:35.165632094Z"
+      "updated_at": "2026-10-23T12:50:35.165632094Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:14.924696573Z"
     },
     {
       "id": "tsk_79b6e647068a07cd",
@@ -214,7 +337,12 @@
       "text": "Alice #1",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:41.718988736Z",
-      "updated_at": "2026-10-23T12:50:41.718988736Z"
+      "updated_at": "2026-10-23T12:50:41.718988736Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:35.721772927Z"
     },
     {
       "id": "tsk_45c458142d7a58a0",
@@ -222,7 +350,12 @@
       "text": "Do not delete me",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:41.847857651Z",
-      "updated_at": "2026-10-23T12:50:41.847857651Z"
+      "updated_at": "2026-10-23T12:50:41.847857651Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:35.721772927Z"
     },
     {
       "id": "tsk_7062f7616a9b869d",
@@ -230,7 +363,12 @@
       "text": "Bob #1",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:46.186958767Z",
-      "updated_at": "2026-10-23T12:50:46.186958767Z"
+      "updated_at": "2026-10-23T12:50:46.186958767Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:35.721772927Z"
     },
     {
       "id": "tsk_fcb0e674a706645a",
@@ -238,7 +376,12 @@
       "text": "Original text",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:48.041928601Z",
-      "updated_at": "2026-10-23T12:50:48.041928601Z"
+      "updated_at": "2026-10-23T12:50:48.041928601Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:35.721772927Z"
     },
     {
       "id": "tsk_e5f500e9b0062150",
@@ -246,7 +389,12 @@
       "text": "Alice #2",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:51.622840183Z",
-      "updated_at": "2026-10-23T12:50:51.622840183Z"
+      "updated_at": "2026-10-23T12:50:51.622840183Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:35.721772927Z"
     },
     {
       "id": "tsk_d26f0d6e0e976e44",
@@ -254,7 +402,12 @@
       "text": "Only Alice sees this",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:53.805312502Z",
-      "updated_at": "2026-10-23T12:50:53.805312502Z"
+      "updated_at": "2026-10-23T12:50:53.805312502Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:35.721772927Z"
     },
     {
       "id": "tsk_bb7c70b35a9cc001",
@@ -262,7 +415,12 @@
       "text": "Bob #2",
       "due_date": "2026-11-05",
       "created_at": "2026-10-23T12:50:55.812434935Z",
-      "updated_at": "2026-10-23T12:50:55.812434935Z"
+      "updated_at": "2026-10-23T12:50:55.812434935Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:35.721772927Z"
     },
     {
       "id": "tsk_2309e635b8be3e35",
@@ -270,7 +428,12 @@
       "text": "Step-10 smoke test",
       "due_date": "2026-10-28",
       "created_at": "2026-10-28T12:54:05.895607685Z",
-      "updated_at": "2026-10-28T12:54:05.895607685Z"
+      "updated_at": "2026-10-28T12:54:05.895607685Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-10-28",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:35.721772927Z"
     },
     {
       "id": "tsk_ca4361c7758caf0c",
@@ -278,7 +441,640 @@
       "text": "Future task (should not be reminded)",
       "due_date": "2026-11-04",
       "created_at": "2026-10-28T12:54:15.322098105Z",
-      "updated_at": "2026-10-28T12:54:15.322098105Z"
+      "updated_at": "2026-10-28T12:54:15.322098105Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-04",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:02:35.721772927Z"
+    },
+    {
+      "id": "tsk_636e5bd2ef587ba1",
+      "user_id": "usr_90eddc42e729c4bd",
+      "text": "Ownership check",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:46.478561363Z",
+      "updated_at": "2026-11-11T08:49:46.478561363Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_85d451ef37beab90",
+      "user_id": "usr_8274945a3cf630ab",
+      "text": "Forgery attempt",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:47.314787339Z",
+      "updated_at": "2026-11-11T08:49:47.314787339Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_070dd09c91f2e763",
+      "user_id": "usr_6b49af126c3280f9",
+      "text": "First task",
+      "due_date": "2026-11-01",
+      "created_at": "2026-11-11T08:49:47.316141392Z",
+      "updated_at": "2026-11-11T08:49:47.316141392Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-01",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_2302db5fbc7a7b32",
+      "user_id": "usr_6b49af126c3280f9",
+      "text": "Second task",
+      "due_date": "2026-11-02",
+      "created_at": "2026-11-11T08:49:47.342093253Z",
+      "updated_at": "2026-11-11T08:49:47.342093253Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-02",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_af0a32ad11f4d8e1",
+      "user_id": "usr_87f3e96a874e4ba7",
+      "text": "Shape check",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:48.06230267Z",
+      "updated_at": "2026-11-11T08:49:48.06230267Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_7fc067cbc79d5743",
+      "user_id": "usr_745491e19ef1a798",
+      "text": "Persisted note",
+      "due_date": "2026-12-01",
+      "created_at": "2026-11-11T08:49:51.601617197Z",
+      "updated_at": "2026-11-11T08:49:51.601617197Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-01",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_d748283a7adf4f87",
+      "user_id": "usr_e2b22ab269487c64",
+      "text": "Alice's private note",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:52.288179578Z",
+      "updated_at": "2026-11-11T08:49:52.288179578Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_6db5dbe1504eeb66",
+      "user_id": "usr_833ea785bdf2c83e",
+      "text": "Alice #1",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:53.289566633Z",
+      "updated_at": "2026-11-11T08:49:53.289566633Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_6f6a8d9166c2a228",
+      "user_id": "usr_c12d407c6d146e56",
+      "text": "Bob #1",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:53.303525976Z",
+      "updated_at": "2026-11-11T08:49:53.303525976Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_d070dcd58a926788",
+      "user_id": "usr_833ea785bdf2c83e",
+      "text": "Alice #2",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:53.307304595Z",
+      "updated_at": "2026-11-11T08:49:53.307304595Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_058ef10ee91053d5",
+      "user_id": "usr_c12d407c6d146e56",
+      "text": "Bob #2",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:53.310819217Z",
+      "updated_at": "2026-11-11T08:49:53.310819217Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_47348826aaae1e07",
+      "user_id": "usr_5993f1fb985769d5",
+      "text": "Do not delete me",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:54.331914214Z",
+      "updated_at": "2026-11-11T08:49:54.331914214Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_cce672ee1bda16f7",
+      "user_id": "usr_eef36891fbba8b0d",
+      "text": "Original text",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:54.674106865Z",
+      "updated_at": "2026-11-11T08:49:54.674106865Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_4df9119857a4f060",
+      "user_id": "usr_7f691eab47e46f94",
+      "text": "Reminder persistence check",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:49:55.419872536Z",
+      "updated_at": "2026-11-11T08:49:55.419872536Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_825bb2abf8733efc",
+      "user_id": "usr_fce594174f2f84a9",
+      "text": "Only Alice sees this",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T08:49:55.734936703Z",
+      "updated_at": "2026-11-11T08:49:55.734936703Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_e9bdc53d3c68a137",
+      "user_id": "usr_8c31f28893a816e3",
+      "text": "Muted reminder",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:49:56.430110723Z",
+      "updated_at": "2026-11-11T08:49:56.430110723Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_159b79bb1301402d",
+      "user_id": "usr_7522a8505ee754cd",
+      "text": "Default reminder check",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:49:56.82318038Z",
+      "updated_at": "2026-11-11T08:49:56.82318038Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_6f229c771febaa5a",
+      "user_id": "usr_e87e79296c0aa6dd",
+      "text": "Bad start date",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:49:57.840160716Z",
+      "updated_at": "2026-11-11T08:49:57.840160716Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_6908ec160d5b7ae6",
+      "user_id": "usr_3c60579f03c72078",
+      "text": "Start after due",
+      "due_date": "2026-11-01",
+      "created_at": "2026-11-11T08:49:58.202821966Z",
+      "updated_at": "2026-11-11T08:49:58.202821966Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-01",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_dd4a147bf81bcab9",
+      "user_id": "usr_349a4d9773d3a4e7",
+      "text": "Bad reminder time",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:49:59.215700723Z",
+      "updated_at": "2026-11-11T08:49:59.215700723Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_93b05a9cb70525d2",
+      "user_id": "usr_1c0359ac7e9841ff",
+      "text": "Bad timezone",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:49:59.565206333Z",
+      "updated_at": "2026-11-11T08:49:59.565206333Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_80af57ce98b46290",
+      "user_id": "usr_c609e6e6027e8b55",
+      "text": "Reschedule me",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:50:00.598292556Z",
+      "updated_at": "2026-11-11T08:50:00.605441853Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_3e887df03080bf26",
+      "user_id": "usr_bf8ea783f2fbc230",
+      "text": "Reset me",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:50:00.911267717Z",
+      "updated_at": "2026-11-11T08:50:00.920526012Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_aa3e97c18714cb4c",
+      "user_id": "usr_b4fba94abec0dcd7",
+      "text": "Preserve me",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:50:01.952513612Z",
+      "updated_at": "2026-11-11T08:50:01.973275401Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_7c0ad93918fc0aa1",
+      "user_id": "usr_4fa172bb7500bcf0",
+      "text": "Alice's private reminder",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:50:02.995983657Z",
+      "updated_at": "2026-11-11T08:50:02.995983657Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_a46d92945a77f623",
+      "user_id": "usr_ae012f2c3f00dc3c",
+      "text": "reminder probe",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T08:54:29.180007861Z",
+      "updated_at": "2026-11-11T08:54:29.180007861Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_a85718abe7ead46e",
+      "user_id": "usr_d4913f78cc31a9c4",
+      "text": "reminder probe",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T09:08:13.53296848Z",
+      "updated_at": "2026-11-11T09:08:13.534597429Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-13",
+      "reminder_time": "20:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_edb670f44718ea20",
+      "user_id": "usr_448fe5bd62bd697c",
+      "text": "Ownership check",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:20.91811842Z",
+      "updated_at": "2026-11-11T09:10:20.920740932Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_ccec176ddc95534f",
+      "user_id": "usr_45fd7a27ca0931f5",
+      "text": "Forgery attempt",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:23.460785457Z",
+      "updated_at": "2026-11-11T09:10:23.472455638Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_a7029bcba8bf9ee9",
+      "user_id": "usr_532ab8760d306691",
+      "text": "First task",
+      "due_date": "2026-11-01",
+      "created_at": "2026-11-11T09:10:25.2065032Z",
+      "updated_at": "2026-11-11T09:10:25.219197187Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-01",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_b65bc6107940f685",
+      "user_id": "usr_76ee95891eeb704f",
+      "text": "Shape check",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:26.521333225Z",
+      "updated_at": "2026-11-11T09:10:26.533161958Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_eaf07a21d455d6b5",
+      "user_id": "usr_532ab8760d306691",
+      "text": "Second task",
+      "due_date": "2026-11-02",
+      "created_at": "2026-11-11T09:10:26.897928658Z",
+      "updated_at": "2026-11-11T09:10:26.910015797Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-02",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_f24fc58a64e7643e",
+      "user_id": "usr_da180cbb53ae84f9",
+      "text": "Persisted note",
+      "due_date": "2026-12-01",
+      "created_at": "2026-11-11T09:10:32.158118566Z",
+      "updated_at": "2026-11-11T09:10:32.159722905Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-01",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_aff30ce0647d3461",
+      "user_id": "usr_1ec0129402ebae67",
+      "text": "Alice's private note",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:32.411587811Z",
+      "updated_at": "2026-11-11T09:10:32.423229278Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_1f1a08acbdf9b897",
+      "user_id": "usr_b862a7fa4a80c499",
+      "text": "Alice #1",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:35.570775589Z",
+      "updated_at": "2026-11-11T09:10:35.582137314Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_f15040a0ab2e0023",
+      "user_id": "usr_9764b089eea427c1",
+      "text": "Do not delete me",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:36.095702773Z",
+      "updated_at": "2026-11-11T09:10:36.107259784Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_ff818ce765a29928",
+      "user_id": "usr_aeddc51ebbe741b2",
+      "text": "Bob #1",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:37.327129617Z",
+      "updated_at": "2026-11-11T09:10:37.340230917Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_a3bfb4b275ab3cb4",
+      "user_id": "usr_b862a7fa4a80c499",
+      "text": "Alice #2",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:39.170684729Z",
+      "updated_at": "2026-11-11T09:10:39.172732658Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_6cdc1f5c4d1a6bf1",
+      "user_id": "usr_2189208e53cb9a65",
+      "text": "Original text",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:39.421714291Z",
+      "updated_at": "2026-11-11T09:10:39.423478046Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_de804b16652034d8",
+      "user_id": "usr_aeddc51ebbe741b2",
+      "text": "Bob #2",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:40.820164798Z",
+      "updated_at": "2026-11-11T09:10:40.833520754Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_fdff1dc9309a71d8",
+      "user_id": "usr_eb31a7aa8ff4bb7b",
+      "text": "Only Alice sees this",
+      "due_date": "2026-11-05",
+      "created_at": "2026-11-11T09:10:42.421100401Z",
+      "updated_at": "2026-11-11T09:10:42.432779656Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-05",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T09:18:22.740922556Z"
+    },
+    {
+      "id": "tsk_2370430b3e85e1bb",
+      "user_id": "usr_036d73ac639b7512",
+      "text": "Reminder persistence check",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T09:10:43.247009448Z",
+      "updated_at": "2026-11-11T09:10:43.258849704Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-13",
+      "reminder_time": "20:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_f2149d241043cb9b",
+      "user_id": "usr_2301674900d05b74",
+      "text": "Default reminder check",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T09:10:44.789697694Z",
+      "updated_at": "2026-11-11T09:10:44.791487835Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_bd7aafcfa1ee1950",
+      "user_id": "usr_0966513bab8f2dcf",
+      "text": "Muted reminder",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T09:10:45.529110736Z",
+      "updated_at": "2026-11-11T09:10:45.531653823Z",
+      "reminder_enabled": false,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_e9e88c0880692e98",
+      "user_id": "usr_1c2559c481f5da4d",
+      "text": "Reschedule me",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T09:10:48.630009726Z",
+      "updated_at": "2026-11-11T09:10:50.285717709Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-20",
+      "reminder_time": "18:30",
+      "reminder_timezone": "America/New_York"
+    },
+    {
+      "id": "tsk_cc84a3fd61b2e0b3",
+      "user_id": "usr_d4dcc224115bf27b",
+      "text": "Reset me",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T09:10:49.323810829Z",
+      "updated_at": "2026-11-11T09:10:51.0410767Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-12-03",
+      "reminder_time": "08:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_d3f93e5712566633",
+      "user_id": "usr_cd96bad9c736539e",
+      "text": "Preserve me",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T09:10:51.045079495Z",
+      "updated_at": "2026-11-11T09:10:52.732225896Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-13",
+      "reminder_time": "20:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_d68f691a4af681ee",
+      "user_id": "usr_886663c8bdf58170",
+      "text": "Alice's private reminder",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T09:10:52.41752101Z",
+      "updated_at": "2026-11-11T09:10:52.419321307Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-13",
+      "reminder_time": "20:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_0d21f174c8e923ff",
+      "user_id": "usr_7a75a7f80019086a",
+      "text": "docker reminder probe",
+      "due_date": "2026-12-03",
+      "created_at": "2026-11-11T09:18:29.531509082Z",
+      "updated_at": "2026-11-11T09:18:29.543103956Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-13",
+      "reminder_time": "20:00",
+      "reminder_timezone": "Asia/Kolkata"
+    },
+    {
+      "id": "tsk_550001883f0c5a53",
+      "user_id": "usr_3e4f7696bd0a043b",
+      "text": "this is checking for the task is working are not??",
+      "due_date": "2026-11-30",
+      "created_at": "2026-11-11T13:14:05.607575333Z",
+      "updated_at": "2026-11-11T13:14:05.611355525Z",
+      "reminder_enabled": true,
+      "reminder_start_date": "2026-11-11",
+      "reminder_time": "18:45",
+      "reminder_timezone": "Asia/Kolkata",
+      "last_reminder_sent_at": "2026-11-11T13:15:02.205206677Z"
     }
   ]
 }

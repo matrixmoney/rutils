@@ -1265,7 +1265,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Returns every task OWNED BY THE AUTHENTICATED USER, newest first. Requires Bearer JWT. Tasks belonging to other users are never returned.",
+                "description": "Returns every task OWNED BY THE AUTHENTICATED USER, newest first. Requires Bearer JWT. Tasks belonging to other users are never returned. Each task carries its own reminder schedule (reminder_enabled, reminder_start_date, reminder_time, reminder_timezone, last_reminder_sent_at).",
                 "produces": [
                     "application/json"
                 ],
@@ -1306,7 +1306,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Creates a new task owned by the authenticated user. The owner is derived from the JWT — the client cannot set it. On success, a confirmation email is dispatched to the user's email address when `send_email` is true (default when omitted). EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome.",
+                "description": "Creates a new task owned by the authenticated user. The owner is derived from the JWT — the client cannot set it. On success, a confirmation email is dispatched to the user's email address when `send_email` is true (default when omitted). EmailSent reflects whether the dispatch succeeded. The task is saved regardless of email outcome. Each task also carries an independent reminder schedule (see `CreateTaskRequest`): the scheduler will email the task daily from `reminder_start_date` at `reminder_time` (in `reminder_timezone`) until the task is deleted.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1372,7 +1372,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Updates the text and due date of a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from \"not found\" — no information leak). Requires Bearer JWT. When `send_email` is true, an \"updated\" email is dispatched showing the before/after diff. `email_sent` reflects whether the dispatch succeeded. The task is saved regardless of email outcome.",
+                "description": "Updates the text and due date of a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from \"not found\" — no information leak). Requires Bearer JWT. When `send_email` is true, an \"updated\" email is dispatched showing the before/after diff. `email_sent` reflects whether the dispatch succeeded. The task is saved regardless of email outcome. Reminder fields are tri-state: omitted → keep current value; sent as \"\" → reset to default; sent with a value → replace.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1452,7 +1452,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Deletes a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from \"not found\" — no information leak). Requires Bearer JWT. A \"deleted\" email is dispatched by default (pass ?send_email=false to suppress it). `email_sent` reflects whether the dispatch succeeded. The task is deleted regardless of email outcome.",
+                "description": "Deletes a task OWNED BY THE AUTHENTICATED USER. Returns 404 for tasks owned by other users (indistinguishable from \"not found\" — no information leak). Requires Bearer JWT. A \"deleted\" email is dispatched by default (pass ?send_email=false to suppress it). `email_sent` reflects whether the dispatch succeeded. The task is deleted regardless of email outcome. Deleting the task is the only way to stop its daily reminder emails — there is no due-date or end-date stop in the reminder model.",
                 "produces": [
                     "application/json"
                 ],
@@ -2728,6 +2728,19 @@
                     "type": "string",
                     "example": "2026-11-05"
                 },
+                "reminder_enabled": {
+                    "description": "── Reminder fields (new, all optional) ─────────────────────",
+                    "type": "boolean"
+                },
+                "reminder_start_date": {
+                    "type": "string"
+                },
+                "reminder_time": {
+                    "type": "string"
+                },
+                "reminder_timezone": {
+                    "type": "string"
+                },
                 "send_email": {
                     "type": "boolean"
                 },
@@ -2765,6 +2778,25 @@
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "last_reminder_sent_at": {
+                    "type": "string"
+                },
+                "reminder_enabled": {
+                    "description": "── Reminder fields (new) ────────────────────────────────────",
+                    "type": "boolean"
+                },
+                "reminder_start_date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "reminder_time": {
+                    "description": "\"HH:MM\" 24-hour",
+                    "type": "string"
+                },
+                "reminder_timezone": {
+                    "description": "IANA tz name",
                     "type": "string"
                 },
                 "text": {
@@ -2815,6 +2847,19 @@
                 "due_date": {
                     "type": "string",
                     "example": "2026-11-12"
+                },
+                "reminder_enabled": {
+                    "description": "── Reminder fields (new, all optional) ─────────────────────",
+                    "type": "boolean"
+                },
+                "reminder_start_date": {
+                    "type": "string"
+                },
+                "reminder_time": {
+                    "type": "string"
+                },
+                "reminder_timezone": {
+                    "type": "string"
                 },
                 "send_email": {
                     "type": "boolean"

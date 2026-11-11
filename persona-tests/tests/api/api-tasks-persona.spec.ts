@@ -704,3 +704,512 @@ test.describe('Backend API Tasks Notes Persona', () => {
     expect(found).toBeUndefined();
   });
 });
+
+
+// ================================================================
+// REMINDER SCHEDULER PERSONA (new in this revision)
+//
+// These tests exercise the per-task reminder schedule that was added
+// in this release. The core requirement:
+//
+//   "If the due date is 03-12-2026, and the user selects
+//    reminder_start_date = 13-11-2026 and reminder_time = 20:00,
+//    then from 13-11-2026 20:00 onward, the reminder email fires
+//    EVERY DAY at 20:00, until the task is deleted."
+//
+// The API-level contract we test here:
+//   1. Create with reminder → fields persisted verbatim.
+//   2. Create without reminder → safe defaults applied
+//      (start = due_date, time = "08:00", tz = "Asia/Kolkata",
+//       enabled = true).
+//   3. Invalid reminder_start_date → 400 with a specific message.
+//   4. Invalid reminder_time → 400 with a specific message.
+//   5. Invalid reminder_timezone → 400 with a specific message.
+//   6. Update with new reminder values → fields replaced.
+//   7. Update with "" values → fields reset to their defaults.
+//   8. Cross-user isolation is preserved: Bob cannot see, update,
+//      or delete Alice's reminder via any field on her task.
+//
+// These tests do NOT start the scheduler or wait for an email to
+// fire. The scheduler's firing predicate (`shouldSendReminder`) is
+// exhaustively unit-tested in `internal/scheduler/reminders_test.go`
+// — 33 cases, all green. What we test here is the API contract that
+// the scheduler relies on: that a task's reminder fields can be set,
+// read back, and updated with the exact tri-state semantics.
+// ================================================================
+
+test.describe('Backend API Tasks Reminder Persona', () => {
+
+  // ── Local helpers (independent of the outer describe's helpers) ──
+
+  async function freshToken(request: any): Promise<string> {
+    const email = `tasks_rem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@example.com`;
+    const password = 'Password123!';
+
+    const reg = await request.post(`${API_URL}/auth/register`, {
+      data: {
+        name: 'Reminder Persona',
+        email,
+        password,
+        confirm_password: password,
+      },
+    });
+    expect(reg.status()).toBe(201);
+
+    const login = await request.post(`${API_URL}/auth/login`, {
+      data: { email, password },
+    });
+    expect(login.status()).toBe(200);
+    const body = await login.json();
+    expect(body.token).toBeTruthy();
+    return body.token as string;
+  }
+
+  // ================================================================
+  // GROUP 1: CREATE with reminder
+  // ================================================================
+
+  test('Reminder Persona: Create with custom reminder persists all fields', async ({ request }) => {
+    await test.step('Why we use this test: the literal requirement — the user picks a start date and a time-of-day, and both must be persisted unchanged so the scheduler can honour them.', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    let created: any;
+
+    await test.step('What we use: POST /tasks with an explicit reminder_start_date, reminder_time, and reminder_timezone.', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: {
+          text: 'Reminder persistence check',
+          due_date: '2026-12-03',
+          reminder_enabled: true,
+          reminder_start_date: '2026-11-13',
+          reminder_time: '20:00',
+          reminder_timezone: 'Asia/Kolkata',
+        },
+      });
+
+      expect(res.status()).toBe(201);
+      created = (await res.json()).task;
+    });
+
+    await test.step('What we get: the response echoes every reminder field verbatim.', async () => {
+      expect(created.reminder_enabled).toBe(true);
+      expect(created.reminder_start_date).toBe('2026-11-13');
+      expect(created.reminder_time).toBe('20:00');
+      expect(created.reminder_timezone).toBe('Asia/Kolkata');
+      // The scheduler-only field must be unset on a newly-created task.
+      expect(created.last_reminder_sent_at).toBeUndefined();
+    });
+
+    await test.step('And a follow-up GET /tasks returns the same reminder fields.', async () => {
+      const list = await request.get(`${API_URL}/tasks`, { headers: auth });
+      expect(list.status()).toBe(200);
+      const body = await list.json();
+      const found = body.tasks.find((t: any) => t.id === created.id);
+      expect(found).toBeDefined();
+      expect(found.reminder_start_date).toBe('2026-11-13');
+      expect(found.reminder_time).toBe('20:00');
+      expect(found.reminder_timezone).toBe('Asia/Kolkata');
+      expect(found.reminder_enabled).toBe(true);
+    });
+
+    await test.step('Why it got this output: the service applied no defaults because every field was supplied; the store persisted the values verbatim.', async () => {});
+  });
+
+  test('Reminder Persona: Create WITHOUT reminder fields applies the safe defaults', async ({ request }) => {
+    await test.step('Why we use this test: the "add a task quickly" path. A client that does not know about reminder fields (or an old cached build) must still produce a task that fires a daily reminder starting on its due date at 08:00 IST.', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    let created: any;
+
+    await test.step('What we use: POST /tasks with only text and due_date — no reminder fields at all.', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: {
+          text: 'Default reminder check',
+          due_date: '2026-12-03',
+        },
+      });
+
+      expect(res.status()).toBe(201);
+      created = (await res.json()).task;
+    });
+
+    await test.step('What we get: the server substituted every default.', async () => {
+      expect(created.reminder_enabled).toBe(true);
+      expect(created.reminder_start_date).toBe('2026-12-03'); // = due_date
+      expect(created.reminder_time).toBe('08:00');
+      expect(created.reminder_timezone).toBe('Asia/Kolkata');
+      expect(created.last_reminder_sent_at).toBeUndefined();
+    });
+
+    await test.step('Why it got this output: the service layer applied applyReminderDefaults before persisting.', async () => {});
+  });
+
+  test('Reminder Persona: Create with reminder_enabled=false is respected', async ({ request }) => {
+    await test.step('Why we use this test: a user must be able to create a task that does NOT send reminder emails, without having to set a fake start date.', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    let created: any;
+
+    await test.step('What we use: POST /tasks with reminder_enabled explicitly false.', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: {
+          text: 'Muted reminder',
+          due_date: '2026-12-03',
+          reminder_enabled: false,
+        },
+      });
+
+      expect(res.status()).toBe(201);
+      created = (await res.json()).task;
+    });
+
+    await test.step('What we get: reminder_enabled is false, and the other reminder fields still have their defaults.', async () => {
+      expect(created.reminder_enabled).toBe(false);
+      // The other fields still have their defaults — the user can
+      // later re-enable without re-entering a start date or time.
+      expect(created.reminder_start_date).toBe('2026-12-03');
+      expect(created.reminder_time).toBe('08:00');
+      expect(created.reminder_timezone).toBe('Asia/Kolkata');
+    });
+
+    await test.step('Why it got this output: the pointer-based ReminderEnabled field let the request distinguish "false" from "omitted".', async () => {});
+  });
+
+  // ================================================================
+  // GROUP 2: CREATE validation
+  // ================================================================
+
+  test('Reminder Persona: Create rejects an invalid reminder_start_date', async ({ request }) => {
+    await test.step('Why we use this test: a corrupted start date would make the scheduler skip the task silently. The API must reject it upfront with a specific message.', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    await test.step('What we use: POST /tasks with reminder_start_date = "13/11/2026" (wrong format).', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: {
+          text: 'Bad start date',
+          due_date: '2026-12-03',
+          reminder_start_date: '13/11/2026',
+        },
+      });
+
+      expect(res.status()).toBe(400);
+      const body = await res.json();
+      expect(body.error.toLowerCase()).toContain('reminder start date');
+      expect(body.error.toLowerCase()).toContain('yyyy-mm-dd');
+    });
+
+    await test.step('Why it got this output: validateReminderFields returned ErrInvalidReminderStartDate, and mapTaskError translated it to a descriptive message.', async () => {});
+  });
+
+  test('Reminder Persona: Create rejects a reminder_start_date AFTER the due date', async ({ request }) => {
+    await test.step('Why we use this test: a reminder that starts after the task is due would fire on a task the user is already past. The cross-field rule must catch this.', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    await test.step('What we use: POST /tasks with due_date = 2026-11-01 but reminder_start_date = 2026-12-03.', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: {
+          text: 'Start after due',
+          due_date: '2026-11-01',
+          reminder_start_date: '2026-12-03',
+        },
+      });
+
+      expect(res.status()).toBe(400);
+      const body = await res.json();
+      expect(body.error.toLowerCase()).toContain('cannot be after the due date');
+    });
+
+    await test.step('Why it got this output: the service compared the parsed start date against the parsed due date and returned ErrReminderStartAfterDue.', async () => {});
+  });
+
+  test('Reminder Persona: Create rejects an invalid reminder_time', async ({ request }) => {
+    await test.step('Why we use this test: "25:99" or "9:30am" would be silently mis-parsed by the scheduler. The API must reject malformed times.', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    await test.step('What we use: POST /tasks with reminder_time = "25:99".', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: {
+          text: 'Bad reminder time',
+          due_date: '2026-12-03',
+          reminder_time: '25:99',
+        },
+      });
+
+      expect(res.status()).toBe(400);
+      const body = await res.json();
+      expect(body.error.toLowerCase()).toContain('reminder time');
+      expect(body.error.toLowerCase()).toContain('hh:mm');
+    });
+
+    await test.step('Why it got this output: validateReminderFields used time.Parse with the "15:04" layout and rejected the value.', async () => {});
+  });
+
+  test('Reminder Persona: Create rejects an invalid reminder_timezone', async ({ request }) => {
+    await test.step('Why we use this test: a typo in the timezone ("Asia/Kolkatta") would make every reminder fire at the wrong wall-clock hour. The API must catch it.', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    await test.step('What we use: POST /tasks with reminder_timezone = "Asia/Kolkatta" (typo).', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: {
+          text: 'Bad timezone',
+          due_date: '2026-12-03',
+          reminder_timezone: 'Asia/Kolkatta',
+        },
+      });
+
+      expect(res.status()).toBe(400);
+      const body = await res.json();
+      expect(body.error.toLowerCase()).toContain('timezone');
+      expect(body.error.toLowerCase()).toContain('iana');
+    });
+
+    await test.step('Why it got this output: validateReminderFields attempted time.LoadLocation and the lookup failed.', async () => {});
+  });
+
+  // ================================================================
+  // GROUP 3: UPDATE semantics
+  // ================================================================
+
+  test('Reminder Persona: Update replaces reminder fields with new values', async ({ request }) => {
+    await test.step('Why we use this test: after creation, the user must be able to change the reminder schedule without deleting and recreating the task.', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    let taskId = '';
+
+    await test.step('Setup: create a task with the default reminder.', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: { text: 'Reschedule me', due_date: '2026-12-03' },
+      });
+      expect(res.status()).toBe(201);
+      taskId = (await res.json()).task.id;
+    });
+
+    let updated: any;
+
+    await test.step('What we use: PUT /tasks/{id} with new reminder_start_date, reminder_time, and reminder_timezone.', async () => {
+      const res = await request.put(`${API_URL}/tasks/${taskId}`, {
+        headers: auth,
+        data: {
+          text: 'Reschedule me',
+          due_date: '2026-12-03',
+          reminder_start_date: '2026-11-20',
+          reminder_time: '18:30',
+          reminder_timezone: 'America/New_York',
+        },
+      });
+      expect(res.status()).toBe(200);
+      updated = (await res.json()).task;
+    });
+
+    await test.step('What we get: the new values are stored and returned.', async () => {
+      expect(updated.reminder_start_date).toBe('2026-11-20');
+      expect(updated.reminder_time).toBe('18:30');
+      expect(updated.reminder_timezone).toBe('America/New_York');
+      expect(updated.reminder_enabled).toBe(true); // unchanged
+    });
+
+    await test.step('Why it got this output: the store.UpdateReminder replaced each field with the value from the request pointer.', async () => {});
+  });
+
+  test('Reminder Persona: Update with empty strings resets fields to defaults', async ({ request }) => {
+    await test.step('Why we use this test: the tri-state semantics on PUT — sending "" means "reset to default", not "reject".', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    let taskId = '';
+
+    await test.step('Setup: create a task with a custom reminder.', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: {
+          text: 'Reset me',
+          due_date: '2026-12-03',
+          reminder_start_date: '2026-11-13',
+          reminder_time: '20:00',
+          reminder_timezone: 'America/New_York',
+        },
+      });
+      expect(res.status()).toBe(201);
+      taskId = (await res.json()).task.id;
+    });
+
+    let updated: any;
+
+    await test.step('What we use: PUT /tasks/{id} with each reminder field sent as "".', async () => {
+      const res = await request.put(`${API_URL}/tasks/${taskId}`, {
+        headers: auth,
+        data: {
+          text: 'Reset me',
+          due_date: '2026-12-03',
+          reminder_start_date: '',
+          reminder_time: '',
+          reminder_timezone: '',
+        },
+      });
+      expect(res.status()).toBe(200);
+      updated = (await res.json()).task;
+    });
+
+    await test.step('What we get: every field has reverted to the standard default.', async () => {
+      expect(updated.reminder_start_date).toBe('2026-12-03'); // = due_date
+      expect(updated.reminder_time).toBe('08:00');
+      expect(updated.reminder_timezone).toBe('Asia/Kolkata');
+    });
+
+    await test.step('Why it got this output: store.UpdateReminder treats "" as "apply default" for each field individually.', async () => {});
+  });
+
+  test('Reminder Persona: Update with reminder fields omitted leaves them unchanged', async ({ request }) => {
+    await test.step('Why we use this test: a legacy client that does not know about reminder fields must not accidentally reset them. PUT with only text+due_date must leave the reminder schedule untouched.', async () => {});
+
+    const token = await freshToken(request);
+    const auth = { Authorization: `Bearer ${token}` };
+
+    let taskId = '';
+
+    await test.step('Setup: create a task with a custom reminder.', async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: auth,
+        data: {
+          text: 'Preserve me',
+          due_date: '2026-12-03',
+          reminder_start_date: '2026-11-13',
+          reminder_time: '20:00',
+          reminder_timezone: 'Asia/Kolkata',
+        },
+      });
+      expect(res.status()).toBe(201);
+      taskId = (await res.json()).task.id;
+    });
+
+    let updated: any;
+
+    await test.step('What we use: PUT /tasks/{id} with ONLY text and due_date — no reminder fields.', async () => {
+      const res = await request.put(`${API_URL}/tasks/${taskId}`, {
+        headers: auth,
+        data: { text: 'Preserve me', due_date: '2026-12-03' },
+      });
+      expect(res.status()).toBe(200);
+      updated = (await res.json()).task;
+    });
+
+    await test.step('What we get: the reminder fields are byte-identical to their pre-update values.', async () => {
+      expect(updated.reminder_start_date).toBe('2026-11-13');
+      expect(updated.reminder_time).toBe('20:00');
+      expect(updated.reminder_timezone).toBe('Asia/Kolkata');
+    });
+
+    await test.step('Why it got this output: the *string / *bool pointers were nil, so store.UpdateReminder short-circuited the whole reminder-update path.', async () => {});
+  });
+
+  // ================================================================
+  // GROUP 4: Cross-user isolation is preserved
+  // ================================================================
+
+  test('Reminder Persona: Cross-user update cannot touch another user\'s reminder fields', async ({ request }) => {
+    await test.step('Why we use this test: the reminder fields are new, but the ownership contract must not regress. Bob cannot see or mutate Alice\'s reminder.', async () => {});
+
+    // ── Setup: two fresh users ──
+    async function freshUser(): Promise<{ token: string; userId: string }> {
+      const email = `tasks_rem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}@example.com`;
+      const password = 'Password123!';
+
+      const reg = await request.post(`${API_URL}/auth/register`, {
+        data: { name: 'Rem Persona', email, password, confirm_password: password },
+      });
+      expect(reg.status()).toBe(201);
+      const regBody = await reg.json();
+
+      const login = await request.post(`${API_URL}/auth/login`, {
+        data: { email, password },
+      });
+      expect(login.status()).toBe(200);
+      const loginBody = await login.json();
+
+      return { token: loginBody.token as string, userId: regBody.id as string };
+    }
+
+    const alice = await freshUser();
+    const bob = await freshUser();
+    const authA = { Authorization: `Bearer ${alice.token}` };
+    const authB = { Authorization: `Bearer ${bob.token}` };
+
+    let aliceTaskId = '';
+
+    await test.step("Setup: Alice creates a task with a specific reminder.", async () => {
+      const res = await request.post(`${API_URL}/tasks`, {
+        headers: authA,
+        data: {
+          text: "Alice's private reminder",
+          due_date: '2026-12-03',
+          reminder_start_date: '2026-11-13',
+          reminder_time: '20:00',
+          reminder_timezone: 'Asia/Kolkata',
+        },
+      });
+      expect(res.status()).toBe(201);
+      aliceTaskId = (await res.json()).task.id;
+    });
+
+    await test.step("What we use: Bob tries to update Alice's reminder via PUT with new values.", async () => {
+      const res = await request.put(`${API_URL}/tasks/${aliceTaskId}`, {
+        headers: authB,
+        data: {
+          text: 'Hijacked',
+          due_date: '2026-12-03',
+          reminder_start_date: '2026-01-01',
+          reminder_time: '00:01',
+          reminder_timezone: 'UTC',
+        },
+      });
+      expect(res.status()).toBe(404);
+    });
+
+    await test.step("What we get: Alice's reminder fields are unchanged.", async () => {
+      const list = await request.get(`${API_URL}/tasks`, { headers: authA });
+      expect(list.status()).toBe(200);
+      const body = await list.json();
+      const found = body.tasks.find((t: any) => t.id === aliceTaskId);
+      expect(found).toBeDefined();
+      expect(found.reminder_start_date).toBe('2026-11-13');
+      expect(found.reminder_time).toBe('20:00');
+      expect(found.reminder_timezone).toBe('Asia/Kolkata');
+      expect(found.text).toBe("Alice's private reminder");
+    });
+
+    await test.step("And Bob's list does not contain Alice's task at all.", async () => {
+      const listB = await request.get(`${API_URL}/tasks`, { headers: authB });
+      expect(listB.status()).toBe(200);
+      const bodyB = await listB.json();
+      expect(bodyB.tasks.some((t: any) => t.id === aliceTaskId)).toBe(false);
+    });
+
+    await test.step('Why it got this output: the store enforces ownership on UpdateReminder identically to Update/Delete.', async () => {});
+  });
+
+});

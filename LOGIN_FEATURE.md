@@ -612,7 +612,153 @@ If you have any script, browser snippet, or Playwright spec that references the 
 The `persona-tests/tests/api/api-tasks-persona.spec.ts` file does not reference any of these — it only tests the API — so it continues to pass unchanged.
 
 ---
+---
 
+## 7d. Task Reminder Scheduler
+
+This section documents the per-task reminder scheduler — the feature that lets each task carry **its own** start date, time-of-day, and timezone, and fires an email reminder **every day** from that start date onward until the task is deleted.
+
+### 7d.1 — The requirement, stated precisely
+
+When a user creates (or edits) a task, they pick:
+
+| Input | Field | Meaning |
+|---|---|---|
+| Reminder start date | `reminder_start_date` | The first day reminders should fire (`YYYY-MM-DD`). |
+| Reminder time-of-day | `reminder_time` | The time, every day, at which the reminder fires (`HH:MM`, 24-hour). |
+| Timezone | `reminder_timezone` | The IANA zone in which the above date/time are interpreted (e.g. `Asia/Kolkata`). |
+| Master on/off | `reminder_enabled` | Per-task kill switch. When `false`, no emails fire for this task, ever, until re-enabled. |
+
+**The firing rule, in one sentence:** from `reminder_start_date` at `reminder_time` (in `reminder_timezone`), an email fires **once per calendar day at that time**, and **keeps firing every day forever**, until the task is **deleted**. There is no due-date stop, no "N days before" window, and no automatic pause. Deletion is the only way to stop the reminders.
+
+**Worked example** (verbatim from the requirement):
+- Task: `due_date = 2026-12-03`
+- User chooses: `reminder_start_date = 2026-11-13`, `reminder_time = 20:00`, `reminder_timezone = Asia/Kolkata`
+- Result: emails fire at `20:00 IST` on `13 Nov 2026`, `14 Nov 2026`, `15 Nov 2026`, …, and **continue every day forever**, including after `3 Dec 2026`, until the task is deleted.
+
+### 7d.2 — The `Task` data model
+
+Every task stored in `data/tasks.json` carries these five reminder fields:
+
+| Field | Type | Default when absent | Who writes it |
+|---|---|---|---|
+| `reminder_enabled` | `bool` | `true` | Client (`POST` / `PUT`) |
+| `reminder_start_date` | `string` `YYYY-MM-DD` | the task's `due_date` | Client (`POST` / `PUT`) |
+| `reminder_time` | `string` `HH:MM` 24-hour | `"08:00"` | Client (`POST` / `PUT`) |
+| `reminder_timezone` | `string` IANA name | `"Asia/Kolkata"` | Client (`POST` / `PUT`) |
+| `last_reminder_sent_at` | `string` RFC3339 timestamp | absent (nil) | **Server only** — the scheduler |
+
+The four "always-present" fields are **never `omitempty`**. The store normalises every task on load, so any `GET /tasks` response carries a concrete value in each of them. The `last_reminder_sent_at` field is the only one that may be absent (a task that has never been reminded).
+
+**Why `last_reminder_sent_at` exists:** the scheduler runs **every minute** (see §7d.3). Without a persistent record of "when did we last send a reminder for this task?", the tick would fire 1,440 emails per day. `last_reminder_sent_at` is the **idempotency guard**: if it falls on the same calendar day as `now` (in the task's timezone), the tick skips the task until tomorrow. It is written by the scheduler **only after** a successful email dispatch.
+
+### 7d.3 — The scheduler job
+
+A single job, `"reminder-tick"`, runs **every minute** (registered via `rlib.Every(time.Minute)` in `internal/scheduler/scheduler.go`). On each tick:
+
+1. Iterate over every registered user.
+2. For each user's tasks, evaluate `shouldSendReminder(task, now)`.
+3. For every task where the predicate returns `true`, add it to the user's "due this minute" bucket.
+4. If the bucket is non-empty, dispatch **one aggregated email** listing every task in it, using the existing `SendDailyReminder` template.
+5. On successful send, call `MarkReminderSent(userID, taskID, now)` — this persists `last_reminder_sent_at` so tomorrow's tick can fire, but today's cannot re-fire.
+
+Failures are handled per-user: a broken SMTP connection for Alice does **not** stop Bob's reminder. A corrupt reminder row for one of Alice's tasks is skipped silently (with a log line) without aborting the whole tick.
+
+### 7d.4 — The firing predicate (`shouldSendReminder`)
+
+The core of the feature is a single pure function in `internal/scheduler/reminders.go`. It returns `true` if and only if **all** of the following hold:
+
+1. `task.ReminderEnabled == true`.
+2. `now >= (reminder_start_date at reminder_time, in reminder_timezone)`.
+3. `task.last_reminder_sent_at` is `nil`, OR its calendar day (in the task's timezone) is **strictly earlier** than `now`'s calendar day.
+
+There is **no** due-date check, by design. An overdue task keeps firing daily — the user must explicitly delete it to stop the reminders.
+
+The function is exhaustively unit-tested in `internal/scheduler/reminders_test.go` — 33 table-driven cases covering: master switch off, before/at/after start instant, already-sent-today, sent-yesterday, no-due-date-stop, timezone boundaries, cross-day idempotency, and corrupt stored fields. See §7d.7 for the test map.
+
+### 7d.5 — API semantics
+
+The four reminder fields are settable through **`POST /tasks`** and **`PUT /tasks/{id}`**. Their semantics differ between the two endpoints:
+
+#### On `POST /tasks` (create)
+
+Every reminder field is **optional**. Missing fields get their defaults:
+
+| Field | Omitted | Explicitly set |
+|---|---|---|
+| `reminder_enabled` | `true` | whatever the client sends (true or false) |
+| `reminder_start_date` | task's `due_date` | the value, or `""` to accept the default |
+| `reminder_time` | `"08:00"` | the value, or `""` to accept the default |
+| `reminder_timezone` | `"Asia/Kolkata"` | the value, or `""` to accept the default |
+
+The response echoes the effective values, so a client that omitted every field sees exactly what the server chose.
+
+#### On `PUT /tasks/{id}` (update) — the tri-state
+
+Every reminder field is **tri-state** on update. The wire-level expression of that tri-state:
+
+| Wire value | Meaning |
+|---|---|
+| Field **absent** from the JSON body | Keep the task's current stored value. |
+| `""` (empty string) | Reset the field to its default (`due_date` / `"08:00"` / `"Asia/Kolkata"`). |
+| Any non-empty value | Replace the field with the new value. |
+
+The `reminder_enabled` field uses the same tri-state via a JSON `boolean`:
+
+| Wire value | Meaning |
+|---|---|
+| Field absent | Keep the task's current `reminder_enabled` value. |
+| `true` | Force-enable the reminder. |
+| `false` | Force-disable the reminder (no emails will fire). |
+
+This tri-state is expressed at the Go level with `*string` and `*bool` pointer fields on `UpdateTaskRequest` (see `internal/tasks/models.go`) — `nil` = keep, pointer to `""` = reset, pointer to a value = replace.
+
+#### Validation rules
+
+On both endpoints, the service layer rejects:
+
+| Condition | Error returned (HTTP 400) |
+|---|---|
+| `reminder_start_date` not `YYYY-MM-DD` | `Reminder start date must be a valid YYYY-MM-DD date` |
+| `reminder_start_date > due_date` | `Reminder start date cannot be after the due date` |
+| `reminder_time` not `HH:MM` (24-hour) | `Reminder time must be in HH:MM 24-hour format (e.g. 08:00, 20:30)` |
+| `reminder_timezone` not a valid IANA name | `Reminder timezone must be a valid IANA timezone name (e.g. Asia/Kolkata, America/New_York)` |
+
+The cross-field rule (`start_date ≤ due_date`) protects the user from a reminder that would only start firing after the task is already overdue.
+
+### 7d.6 — Frontend
+
+The new-task card and the edit card both expose a **⏰ Reminder Settings** collapsible section (see `frontend/index.html` and `frontend/src/tasks-ui.ts`). Four controls:
+
+- **Enable daily reminder email** checkbox — maps to `reminder_enabled`.
+- **Start reminding on** date picker — maps to `reminder_start_date`. Empty = "use due date".
+- **At what time (24-hour)** time picker — maps to `reminder_time`. Empty = "use 08:00".
+- **Timezone** select (12 common zones + "Default") — maps to `reminder_timezone`.
+
+The collapsed summary row on the new-task card shows a live preview of the effect ("Starts <due date>, daily at 08:00 (IST)") that updates as the user changes any input. Every saved task's view card displays a small reminder line under the due date showing its current schedule.
+
+### 7d.7 — Testing
+
+The feature is covered at three layers:
+
+| Layer | File | What it proves |
+|---|---|---|
+| **Firing predicate** (unit) | `internal/scheduler/reminders_test.go` — 33 table cases | `shouldSendReminder` fires exactly when the spec says, and never otherwise. |
+| **API contract** (integration) | `persona-tests/tests/api/api-tasks-persona.spec.ts` — 11 reminder cases | Create/update/validation/cross-user isolation for the reminder fields. |
+| **Server-level** (regression) | `internal/api/tasks_handler_test.go` — 18 existing cases | The pre-reminder behaviour (email on create, silent on update, email on delete, cross-user 404) is unchanged. |
+
+Run them all:
+
+```bash
+# Unit tests for the scheduler predicate
+go test ./internal/scheduler/... -v
+
+# API + handler regression tests
+go test ./internal/api/... ./internal/tasks/... ./cmd/server/...
+
+# End-to-end reminder persona tests
+cd persona-tests && npx playwright test tests/api/api-tasks-persona.spec.ts
+#   → 34 passed
 ## 8. Swagger Documentation
 
 All authentication endpoints are fully documented and integrated with Swagger UI:
